@@ -1,0 +1,5 @@
+household.db
+*.xlsx
+*.csv
+__pycache__/
+*.pyc
