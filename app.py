@@ -1,12 +1,13 @@
 import sqlite3
 import math
+import os
 from datetime import date
 from flask import Flask, jsonify, request, send_from_directory
 
 app = Flask(__name__, static_folder="static", static_url_path="")
 app.json.sort_keys = False
 
-DB = "household.db"
+DB = os.path.join(os.path.dirname(os.path.abspath(__file__)), "household.db")
 
 CATEGORIES = {
     "生活費": ["食費", "生活雑費", "家賃", "水道光熱費", "家具・家電", "その他"],
