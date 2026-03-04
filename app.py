@@ -45,6 +45,29 @@ def init_db():
                 UNIQUE(year, month, category)
             )
         """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS settlement_status (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                year INTEGER NOT NULL,
+                month INTEGER NOT NULL,
+                person TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'pending',
+                updated_at TEXT DEFAULT (datetime('now', 'localtime')),
+                UNIQUE(year, month, person)
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS account_transactions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                date TEXT NOT NULL,
+                amount INTEGER NOT NULL,
+                type TEXT NOT NULL,
+                person TEXT,
+                notes TEXT,
+                auto_key TEXT UNIQUE,
+                created_at TEXT DEFAULT (datetime('now', 'localtime'))
+            )
+        """)
 
 
 @app.route("/")
@@ -167,6 +190,11 @@ def get_summary():
             WHERE year = ? AND month = ?
         """, (year, month)).fetchall()
 
+        statuses = conn.execute("""
+            SELECT person, status FROM settlement_status
+            WHERE year = ? AND month = ?
+        """, (year, month)).fetchall()
+
     # aggregate by category
     by_category = {}
     by_payment = {"共通カード": 0, "あかり立替": 0, "だいち立替": 0}
@@ -177,6 +205,7 @@ def get_summary():
             by_payment[r["payment"]] += r["total"]
 
     budget_map = {b["category"]: b["amount"] for b in budgets}
+    status_map = {s["person"]: s["status"] for s in statuses}
 
     total = sum(by_category.values())
     akari_paid = by_payment["あかり立替"]
@@ -203,8 +232,174 @@ def get_summary():
             "daichi_paid": daichi_paid,
             "akari_owes": akari_owes,
             "daichi_owes": daichi_owes,
+            "akari_status": status_map.get("akari", "pending"),
+            "daichi_status": status_map.get("daichi", "pending"),
         }
     })
+
+
+@app.route("/api/settlement-status", methods=["POST"])
+def set_settlement_status():
+    data = request.json
+    required = ["year", "month", "person", "status"]
+    for field in required:
+        if data.get(field) is None:
+            return jsonify({"error": f"{field} is required"}), 400
+    if data["status"] not in ["pending", "partial", "completed"]:
+        return jsonify({"error": "invalid status"}), 400
+    if data["person"] not in ["akari", "daichi"]:
+        return jsonify({"error": "invalid person"}), 400
+
+    year, month, person, status = data["year"], data["month"], data["person"], data["status"]
+    owes = int(data.get("owes", 0))
+
+    PARTIAL_AMOUNT = 100000
+    partial_key = f"settlement-partial:{person}:{year:04d}-{month:02d}"
+    completed_key = f"settlement-completed:{person}:{year:04d}-{month:02d}"
+    tx_type = "振込入金(あかり)" if person == "akari" else "振込入金(だいち)"
+    tx_notes = f"{year}年{month}月分精算"
+    today_str = date.today().strftime("%Y-%m-%d")
+
+    with get_db() as conn:
+        conn.execute("""
+            INSERT INTO settlement_status (year, month, person, status)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(year, month, person) DO UPDATE SET
+                status = excluded.status,
+                updated_at = datetime('now', 'localtime')
+        """, (year, month, person, status))
+
+        if owes > 0:
+            if status == "partial":
+                conn.execute("""
+                    INSERT OR IGNORE INTO account_transactions (date, amount, type, person, notes, auto_key)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                """, (today_str, PARTIAL_AMOUNT, tx_type, person, tx_notes, partial_key))
+                conn.execute("DELETE FROM account_transactions WHERE auto_key = ?", (completed_key,))
+
+            elif status == "completed":
+                partial_exists = conn.execute(
+                    "SELECT id FROM account_transactions WHERE auto_key = ?", (partial_key,)
+                ).fetchone()
+                if partial_exists:
+                    remainder = owes - PARTIAL_AMOUNT
+                    if remainder > 0:
+                        conn.execute("""
+                            INSERT OR IGNORE INTO account_transactions (date, amount, type, person, notes, auto_key)
+                            VALUES (?, ?, ?, ?, ?, ?)
+                        """, (today_str, remainder, tx_type, person, tx_notes, completed_key))
+                else:
+                    conn.execute("""
+                        INSERT OR IGNORE INTO account_transactions (date, amount, type, person, notes, auto_key)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    """, (today_str, owes, tx_type, person, tx_notes, completed_key))
+
+        if status == "pending":
+            conn.execute(
+                "DELETE FROM account_transactions WHERE auto_key IN (?, ?)",
+                (partial_key, completed_key)
+            )
+
+    return jsonify({"ok": True})
+
+
+@app.route("/api/account", methods=["GET"])
+def get_account():
+    today = date.today()
+
+    with get_db() as conn:
+        rows = conn.execute("""
+            SELECT id, date, amount, type, person, notes, auto_key
+            FROM account_transactions
+            ORDER BY date DESC, id DESC
+        """).fetchall()
+        balance_row = conn.execute(
+            "SELECT COALESCE(SUM(amount), 0) AS balance FROM account_transactions"
+        ).fetchone()
+
+        # 26日以降なら前月のカード引き落とし未登録チェック
+        card_suggestion = None
+        if today.day >= 26:
+            prev_year = today.year if today.month > 1 else today.year - 1
+            prev_month = today.month - 1 if today.month > 1 else 12
+            auto_key = f"card:{prev_year}-{prev_month:02d}"
+            existing = conn.execute(
+                "SELECT id FROM account_transactions WHERE auto_key = ?", (auto_key,)
+            ).fetchone()
+            if not existing:
+                card_total = conn.execute("""
+                    SELECT COALESCE(SUM(amount), 0) AS total FROM expenses
+                    WHERE strftime('%Y-%m', date) = ? AND payment = '共通カード'
+                """, (f"{prev_year}-{prev_month:02d}",)).fetchone()["total"]
+                if card_total > 0:
+                    card_suggestion = {
+                        "year": prev_year, "month": prev_month,
+                        "amount": card_total, "auto_key": auto_key,
+                        "date": f"{today.year}-{today.month:02d}-26",
+                    }
+
+    return jsonify({
+        "transactions": [dict(r) for r in rows],
+        "balance": balance_row["balance"],
+        "card_suggestion": card_suggestion,
+    })
+
+
+@app.route("/api/account", methods=["POST"])
+def add_account_transaction():
+    data = request.json
+    required = ["date", "amount", "type"]
+    for field in required:
+        if data.get(field) is None:
+            return jsonify({"error": f"{field} is required"}), 400
+
+    auto_key = data.get("auto_key")
+    with get_db() as conn:
+        if auto_key:
+            conn.execute("""
+                INSERT OR IGNORE INTO account_transactions (date, amount, type, person, notes, auto_key)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (data["date"], int(data["amount"]), data["type"],
+                  data.get("person"), data.get("notes", ""), auto_key))
+            row = conn.execute(
+                "SELECT * FROM account_transactions WHERE auto_key = ?", (auto_key,)
+            ).fetchone()
+        else:
+            cur = conn.execute("""
+                INSERT INTO account_transactions (date, amount, type, person, notes)
+                VALUES (?, ?, ?, ?, ?)
+            """, (data["date"], int(data["amount"]), data["type"],
+                  data.get("person"), data.get("notes", "")))
+            row = conn.execute(
+                "SELECT * FROM account_transactions WHERE id = ?", (cur.lastrowid,)
+            ).fetchone()
+    return jsonify(dict(row)), 201
+
+
+@app.route("/api/account/<int:tx_id>", methods=["PUT"])
+def update_account_transaction(tx_id):
+    data = request.json
+    required = ["date", "amount", "type"]
+    for field in required:
+        if data.get(field) is None:
+            return jsonify({"error": f"{field} is required"}), 400
+    person = {"振込入金(あかり)": "akari", "振込入金(だいち)": "daichi"}.get(data["type"])
+    with get_db() as conn:
+        conn.execute("""
+            UPDATE account_transactions
+            SET date=?, amount=?, type=?, person=?, notes=?
+            WHERE id=?
+        """, (data["date"], int(data["amount"]), data["type"],
+              person, data.get("notes", ""), tx_id))
+        row = conn.execute("SELECT * FROM account_transactions WHERE id = ?", (tx_id,)).fetchone()
+    return jsonify(dict(row))
+
+
+@app.route("/api/account/<int:tx_id>", methods=["DELETE"])
+def delete_account_transaction(tx_id):
+    with get_db() as conn:
+        conn.execute("DELETE FROM account_transactions WHERE id = ?", (tx_id,))
+    return jsonify({"ok": True})
 
 
 @app.route("/api/budgets", methods=["POST"])

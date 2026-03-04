@@ -87,12 +87,40 @@
       flex: 1; border: none; background: none;
       display: flex; flex-direction: column;
       align-items: center; justify-content: center;
-      gap: 3px; font-size: 10px; color: var(--muted);
+      gap: 3px; font-size: 9px; color: var(--muted);
       cursor: pointer; transition: color .2s;
       padding-bottom: env(safe-area-inset-bottom);
     }
     nav button.active { color: var(--primary); }
-    nav button .icon { font-size: 22px; line-height: 1; }
+    nav button .icon { font-size: 20px; line-height: 1; }
+
+    /* ── Account tab ── */
+    .balance-card {
+      background: var(--primary); color: #fff;
+      border-radius: 20px; padding: 20px;
+      margin-bottom: 12px;
+    }
+    .balance-label { font-size: 13px; opacity: 0.8; margin-bottom: 4px; }
+    .balance-amount { font-size: 36px; font-weight: 800; }
+    .balance-amount span { font-size: 20px; }
+    .tx-item { display: flex; align-items: center; padding: 11px 0; border-bottom: 1px solid var(--border); gap: 10px; }
+    .tx-item:last-child { border-bottom: none; }
+    .tx-icon { width: 38px; height: 38px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 17px; flex-shrink: 0; }
+    .tx-icon.in  { background: #E8F5E9; }
+    .tx-icon.out { background: #FFF0F2; }
+    .tx-info { flex: 1; min-width: 0; }
+    .tx-name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tx-sub  { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .tx-right { text-align: right; flex-shrink: 0; }
+    .tx-amount-in  { font-size: 15px; font-weight: 700; color: var(--green); }
+    .tx-amount-out { font-size: 15px; font-weight: 700; color: var(--accent); }
+    .tx-auto-badge { display: inline-block; background: #EEF0FF; color: var(--primary); font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 4px; margin-left: 4px; vertical-align: middle; }
+    .btn-add-tx {
+      width: 100%; padding: 12px;
+      background: none; border: 1.5px dashed var(--border);
+      color: var(--primary); border-radius: 10px;
+      font-size: 14px; cursor: pointer; margin-top: 8px;
+    }
 
     /* ── Main content ── */
     main {
@@ -218,6 +246,22 @@
     .s-recv { color: var(--green); }
     .s-done { color: var(--muted); font-weight: 600; }
 
+    .status-select {
+      display: inline-block;
+      padding: 5px 24px 5px 10px;
+      border-radius: 20px;
+      font-size: 13px; font-weight: 700;
+      cursor: pointer; border: none; outline: none;
+      -webkit-appearance: none; appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='currentColor' opacity='.5'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 8px center;
+      background-size: 8px;
+    }
+    .status-pending  { background-color: #FFF3E0; color: #E65100; }
+    .status-partial  { background-color: #FFF8E1; color: #F57F17; }
+    .status-completed { background-color: #E8F5E9; color: #2E7D32; }
+
     /* ── History page ── */
     .expense-item { display: flex; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border); gap: 10px; }
     .expense-item:last-child { border-bottom: none; }
@@ -259,21 +303,23 @@
       background: rgba(0,0,0,0.4);
       z-index: 300;
       display: none;
-      align-items: flex-end;
+      align-items: flex-start;
+      padding-top: 15dvh;
+      justify-content: center;
     }
     #modal-overlay.open { display: flex; }
     #modal-sheet {
-      width: 100%; max-width: 480px;
-      margin: 0 auto;
+      width: calc(100% - 32px); max-width: 480px;
       background: var(--card);
-      border-radius: 20px 20px 0 0;
-      padding: 20px 16px calc(20px + env(safe-area-inset-bottom));
-      max-height: 90dvh;
+      border-radius: 20px;
+      padding: 20px 16px 20px;
+      max-height: 80dvh;
       overflow-y: auto;
-      transform: translateY(100%);
-      transition: transform .3s ease;
+      opacity: 0;
+      transform: translateY(-12px);
+      transition: opacity .2s ease, transform .2s ease;
     }
-    #modal-overlay.open #modal-sheet { transform: translateY(0); }
+    #modal-overlay.open #modal-sheet { opacity: 1; transform: translateY(0); }
     .modal-handle {
       width: 40px; height: 4px;
       background: var(--border); border-radius: 2px;
@@ -354,7 +400,10 @@
     <span class="icon">📊</span>今月
   </button>
   <button onclick="showTab('history')" id="tab-history">
-    <span class="icon">📋</span>履歴
+    <span class="icon">📋</span>詳細
+  </button>
+  <button onclick="showTab('account')" id="tab-account">
+    <span class="icon">🏦</span>口座
   </button>
 </nav>
 
@@ -388,6 +437,7 @@ let state = {
   selectedPayment: 'あかり立替',
   csvItems: [],
   csvBudgetLabel: '',
+  accountForm: false,
 };
 
 const CATEGORY_ICONS = {
@@ -476,16 +526,19 @@ function changeMonth(delta) {
 // ── Tabs ──
 function showTab(tab) {
   state.tab = tab;
-  ['input', 'summary', 'history'].forEach(t => {
+  state.accountForm = false;
+  ['account', 'input', 'summary', 'history'].forEach(t => {
     document.getElementById(`tab-${t}`).classList.toggle('active', t === tab);
   });
+  document.querySelector('.month-nav').style.display = tab === 'account' ? 'none' : 'flex';
   renderTab(tab);
 }
 
 function renderTab(tab) {
   const el = document.getElementById('main-content');
   el.innerHTML = '<div class="loading">読み込み中...</div>';
-  if (tab === 'input') renderInput(el);
+  if (tab === 'account') renderAccount(el);
+  else if (tab === 'input') renderInput(el);
   else if (tab === 'summary') renderSummary(el);
   else renderHistory(el);
 }
@@ -675,19 +728,29 @@ async function renderSummary(el) {
 
   const akari = settlement.akari_owes;
   const daichi = settlement.daichi_owes;
+  const STATUS_LABEL = { pending: '未振込', partial: '一部振込', completed: '振込完了' };
+  const STATUS_CYCLE = { pending: 'partial', partial: 'completed', completed: 'pending' };
 
   function settlementText(owes, otherOwes, otherName) {
     if (owes > 0) {
       const toOther = Math.max(0, -otherOwes);
-      let html = `<div style="text-align:right"><span class="s-pay">¥${owes.toLocaleString()} 振込</span>`;
+      let html = `<span class="s-pay">¥${owes.toLocaleString()} 振込</span>`;
       if (toOther > 0) {
         html += `<div class="settlement-sub" style="margin-top:3px">うち${otherName}へ ¥${toOther.toLocaleString()}</div>`;
       }
-      html += `</div>`;
       return html;
     }
     if (owes < 0) return `<span class="s-recv">${otherName}から ¥${Math.abs(owes).toLocaleString()} もらう</span>`;
     return `<span class="s-done">± 0円</span>`;
+  }
+
+  function statusSelect(person, status) {
+    const owes = settlement[`${person}_owes`];
+    if (owes === 0) return '';
+    const opts = Object.entries(STATUS_LABEL).map(([v, l]) =>
+      `<option value="${v}" ${v === status ? 'selected' : ''}>${l}</option>`
+    ).join('');
+    return `<select class="status-select status-${status}" onchange="changeStatus('${person}', this, ${owes})">${opts}</select>`;
   }
 
   el.innerHTML = `
@@ -700,17 +763,23 @@ async function renderSummary(el) {
       <div class="card-title">精算</div>
       <div class="settlement-row">
         <div>
-          <div class="settlement-name">あかり</div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
+            <div class="settlement-name">あかり</div>
+            ${statusSelect('akari', settlement.akari_status)}
+          </div>
           <div class="settlement-sub">立替済み ¥${settlement.akari_paid.toLocaleString()}</div>
         </div>
-        <div class="settlement-amount">${settlementText(akari, daichi, 'だいち')}</div>
+        <div class="settlement-amount" style="text-align:right">${settlementText(akari, daichi, 'だいち')}</div>
       </div>
       <div class="settlement-row">
         <div>
-          <div class="settlement-name">だいち</div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
+            <div class="settlement-name">だいち</div>
+            ${statusSelect('daichi', settlement.daichi_status)}
+          </div>
           <div class="settlement-sub">立替済み ¥${settlement.daichi_paid.toLocaleString()}</div>
         </div>
-        <div class="settlement-amount">${settlementText(daichi, akari, 'あかり')}</div>
+        <div class="settlement-amount" style="text-align:right">${settlementText(daichi, akari, 'あかり')}</div>
       </div>
       <div class="settlement-row">
         <div><div class="settlement-name" style="color:var(--muted)">共通カード</div></div>
@@ -726,6 +795,272 @@ async function renderSummary(el) {
       ${catRows(funCats)}
     </div>
   `;
+}
+
+async function changeStatus(person, selectEl, owes = 0) {
+  const STATUS_LABEL = { pending: '未振込', partial: '一部振込', completed: '振込完了' };
+  const nextStatus = selectEl.value;
+  selectEl.className = `status-select status-${nextStatus}`;
+  const res = await fetch('/api/settlement-status', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ year: state.year, month: state.month, person, status: nextStatus, owes }),
+  });
+  if (res.ok) {
+    const TOAST = {
+      partial: `一部振込 (+¥100,000 を口座に記録)`,
+      completed: owes > 0 ? `振込完了 (+¥${Math.max(0, owes - 100000).toLocaleString()} を口座に記録)` : '振込完了に変更しました',
+      pending: `未振込 (口座の自動記録を削除)`,
+    };
+    showToast(TOAST[nextStatus] || `${STATUS_LABEL[nextStatus]}に変更しました`);
+  } else {
+    showToast('エラーが発生しました');
+  }
+}
+
+// ── Account Tab ──
+const TX_TYPES = ['振込入金(あかり)', '振込入金(だいち)', 'カード引き落とし', '利息', 'その他入金', 'その他出金'];
+const TX_PERSON = { '振込入金(あかり)': 'akari', '振込入金(だいち)': 'daichi' };
+const TX_IS_IN = type => !type.includes('引き落とし') && !type.includes('出金');
+const TX_ICON = {
+  '振込入金(あかり)': '💸', '振込入金(だいち)': '💸',
+  'カード引き落とし': '💳', '利息': '📈', 'その他入金': '💰', 'その他出金': '📤',
+};
+
+function txItemHtml(tx) {
+  const isIn = TX_IS_IN(tx.type);
+  const amountAbs = Math.abs(tx.amount);
+  const d = new Date(tx.date + 'T00:00:00');
+  const dateLabel = `${d.getMonth()+1}/${d.getDate()}`;
+  const autoTag = tx.auto_key ? '<span class="tx-auto-badge">自動</span>' : '';
+  return `
+    <div class="tx-item">
+      <div class="tx-icon ${isIn ? 'in' : 'out'}">${TX_ICON[tx.type] || (isIn ? '💰' : '📤')}</div>
+      <div class="tx-info">
+        <div class="tx-name">${escHtml(tx.type)}${autoTag}</div>
+        <div class="tx-sub">${dateLabel}${tx.notes ? ' · ' + escHtml(tx.notes) : ''}</div>
+      </div>
+      <div class="tx-right">
+        <div class="${isIn ? 'tx-amount-in' : 'tx-amount-out'}">${isIn ? '+' : '-'}¥${amountAbs.toLocaleString()}</div>
+      </div>
+      <div class="item-btns">
+        <button class="edit-btn" onclick="openAccountEdit(${tx.id})" title="編集">✎</button>
+        <button class="delete-btn" onclick="deleteAccountTx(${tx.id})" title="削除">×</button>
+      </div>
+    </div>`;
+}
+
+async function renderAccount(el) {
+  if (state.accountForm) { renderAccountForm(el); return; }
+
+  const res = await fetch('/api/account');
+  const data = await res.json();
+  const { transactions, balance, card_suggestion } = data;
+  accountTxCache = transactions;
+
+  const balanceColor = balance < 0 ? 'color:var(--accent)' : '';
+
+  // カード引き落とし提案バナー
+  const suggestionHtml = card_suggestion ? `
+    <div class="card" style="border:1.5px solid var(--accent);background:#FFF8F8">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+        <div>
+          <div style="font-size:13px;font-weight:700">💳 カード引き落とし</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px">${card_suggestion.year}年${card_suggestion.month}月分 ¥${card_suggestion.amount.toLocaleString()}</div>
+        </div>
+        <button class="btn-primary" style="width:auto;padding:10px 16px;font-size:13px;margin:0"
+          onclick="registerCardSuggestion(${JSON.stringify(card_suggestion).split('"').join('&quot;')})">登録する</button>
+      </div>
+    </div>` : '';
+
+  // 月ごとにグループ化
+  const grouped = {};
+  for (const tx of transactions) {
+    const key = tx.date.slice(0, 7); // 'YYYY-MM'
+    if (!grouped[key]) grouped[key] = [];
+    grouped[key].push(tx);
+  }
+
+  const monthsHtml = Object.entries(grouped)
+    .sort(([a], [b]) => b.localeCompare(a))
+    .map(([key, txs]) => {
+      const [y, m] = key.split('-').map(Number);
+      const monthTotal = txs.reduce((s, t) => s + t.amount, 0);
+      const sign = monthTotal >= 0 ? '+' : '';
+      return `
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <div class="card-title" style="margin:0">${y}年${m}月</div>
+            <div style="font-size:12px;font-weight:600;color:${monthTotal >= 0 ? 'var(--green)' : 'var(--accent)'}">
+              ${sign}¥${Math.abs(monthTotal).toLocaleString()}
+            </div>
+          </div>
+          ${txs.map(txItemHtml).join('')}
+        </div>`;
+    }).join('') || '<div class="card"><div style="color:var(--muted);font-size:13px">記録がありません</div></div>';
+
+  el.innerHTML = `
+    <div class="balance-card">
+      <div class="balance-label">口座残高（累計）</div>
+      <div class="balance-amount" style="${balanceColor}"><span>¥</span>${Math.abs(balance).toLocaleString()}</div>
+    </div>
+    <button class="btn-add-tx" style="margin-bottom:8px" onclick="state.accountForm=true;renderTab('account')">＋ 入出金を追加</button>
+    ${suggestionHtml}
+    ${monthsHtml}
+  `;
+}
+
+function renderAccountForm(el) {
+  el.innerHTML = `
+    <div class="card">
+      <div class="csv-import-header">
+        <button class="csv-back-btn" onclick="state.accountForm=false;renderTab('account')">←</button>
+        <div style="flex:1;font-size:15px;font-weight:700">入出金を追加</div>
+      </div>
+      <div class="form-group">
+        <label>種別</label>
+        <select id="tx-type">${TX_TYPES.map(t => `<option>${t}</option>`).join('')}</select>
+      </div>
+      <div class="form-group">
+        <label>金額（円）</label>
+        <div class="amount-wrap">
+          <span class="yen-symbol">¥</span>
+          <input type="text" inputmode="numeric" id="tx-amount" placeholder="0">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>日付</label>
+        <input type="date" id="tx-date" value="${formatDate(today)}">
+      </div>
+      <div class="form-group">
+        <label>メモ（任意）</label>
+        <input type="text" id="tx-notes" placeholder="">
+      </div>
+      <button class="btn-primary" onclick="submitAccountTx()">追加する</button>
+    </div>
+  `;
+  setupAmountInput('tx-amount');
+  document.getElementById('tx-amount').focus();
+}
+
+async function submitAccountTx() {
+  const type = document.getElementById('tx-type').value;
+  const amount = getAmountRaw('tx-amount');
+  const date = document.getElementById('tx-date').value;
+  const notes = document.getElementById('tx-notes').value;
+
+  if (!amount || amount <= 0) { showToast('金額を入力してください'); return; }
+  if (!date) { showToast('日付を選択してください'); return; }
+
+  const signedAmount = TX_IS_IN(type) ? amount : -amount;
+  const res = await fetch('/api/account', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ date, amount: signedAmount, type, person: TX_PERSON[type] || null, notes }),
+  });
+  if (res.ok) {
+    state.accountForm = false;
+    showToast(`✅ ${type} ¥${amount.toLocaleString()} を追加しました`);
+    renderTab('account');
+  } else {
+    showToast('エラーが発生しました');
+  }
+}
+
+async function registerCardSuggestion(suggestion) {
+  const res = await fetch('/api/account', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      date: suggestion.date,
+      amount: -suggestion.amount,
+      type: 'カード引き落とし',
+      notes: `${suggestion.year}年${suggestion.month}月分`,
+      auto_key: suggestion.auto_key,
+    }),
+  });
+  if (res.ok) {
+    showToast(`✅ カード引き落とし ¥${suggestion.amount.toLocaleString()} を登録しました`);
+    renderTab('account');
+  } else {
+    showToast('エラーが発生しました');
+  }
+}
+
+async function deleteAccountTx(id) {
+  if (!confirm('この記録を削除しますか？')) return;
+  const res = await fetch(`/api/account/${id}`, { method: 'DELETE' });
+  if (res.ok) { showToast('削除しました'); renderTab('account'); }
+}
+
+function openAccountEdit(id) {
+  const tx = accountTxCache.find(t => t.id === id);
+  if (!tx) return;
+  editingAccountTx = tx;
+
+  document.querySelector('.modal-title').textContent = '入出金を編集';
+  const body = document.getElementById('modal-body');
+  const amountAbs = Math.abs(tx.amount);
+  body.innerHTML = `
+    <div class="form-group">
+      <label>種別</label>
+      <select id="ea-type">${TX_TYPES.map(t => `<option ${t === tx.type ? 'selected' : ''}>${t}</option>`).join('')}</select>
+    </div>
+    <div class="form-group">
+      <label>金額（円）</label>
+      <div class="amount-wrap">
+        <span class="yen-symbol">¥</span>
+        <input type="text" inputmode="numeric" id="ea-amount" placeholder="0">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>日付</label>
+      <input type="date" id="ea-date" value="${tx.date}">
+    </div>
+    <div class="form-group">
+      <label>メモ（任意）</label>
+      <input type="text" id="ea-notes" value="${escHtml(tx.notes || '')}">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">キャンセル</button>
+      <button class="btn-save" id="btn-save-account" onclick="saveAccountEdit()">保存する</button>
+    </div>
+  `;
+  setupAmountInput('ea-amount');
+  setAmountFormatted('ea-amount', amountAbs);
+
+  const overlay = document.getElementById('modal-overlay');
+  overlay.classList.add('open');
+  document.getElementById('modal-sheet').scrollTop = 0;
+}
+
+async function saveAccountEdit() {
+  const type = document.getElementById('ea-type').value;
+  const amount = getAmountRaw('ea-amount');
+  const date = document.getElementById('ea-date').value;
+  const notes = document.getElementById('ea-notes').value;
+
+  if (!amount || amount <= 0) { showToast('金額を入力してください'); return; }
+  if (!date) { showToast('日付を選択してください'); return; }
+
+  const signedAmount = TX_IS_IN(type) ? amount : -amount;
+  const btn = document.getElementById('btn-save-account');
+  btn.disabled = true;
+  const res = await fetch(`/api/account/${editingAccountTx.id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ date, amount: signedAmount, type, notes }),
+  });
+  btn.disabled = false;
+
+  if (res.ok) {
+    document.getElementById('modal-overlay').classList.remove('open');
+    editingAccountTx = null;
+    showToast('✅ 更新しました');
+    renderTab('account');
+  } else {
+    showToast('エラーが発生しました');
+  }
 }
 
 function toggleCatDetail(id, rowEl) {
@@ -788,6 +1123,8 @@ async function renderHistory(el) {
 
 // ── Edit modal ──
 let editingExpense = null;
+let editingAccountTx = null;
+let accountTxCache = [];
 
 async function openEdit(id) {
   const res = await fetch(`/api/expenses?year=${state.year}&month=${state.month}`);
@@ -796,6 +1133,7 @@ async function openEdit(id) {
   if (!e) return;
   editingExpense = e;
 
+  document.querySelector('.modal-title').textContent = '支出を編集';
   const body = document.getElementById('modal-body');
   body.innerHTML = `
     <div class="form-group">
@@ -846,6 +1184,7 @@ function closeModal(event) {
   if (event && event.target !== document.getElementById('modal-overlay')) return;
   document.getElementById('modal-overlay').classList.remove('open');
   editingExpense = null;
+  editingAccountTx = null;
 }
 
 async function saveEdit() {
