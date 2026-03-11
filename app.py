@@ -1,7 +1,7 @@
 import sqlite3
 import math
 import os
-from datetime import date
+from datetime import date, timedelta
 from flask import Flask, jsonify, request, send_from_directory
 
 app = Flask(__name__, static_folder="static", static_url_path="")
@@ -69,6 +69,38 @@ def init_db():
                 created_at TEXT DEFAULT (datetime('now', 'localtime'))
             )
         """)
+        try:
+            conn.execute("ALTER TABLE expenses ADD COLUMN recurring_key TEXT")
+        except sqlite3.OperationalError:
+            pass  # already exists
+        conn.execute("""
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_expenses_recurring_key
+            ON expenses (recurring_key) WHERE recurring_key IS NOT NULL
+        """)
+
+
+RENT_AMOUNT = 74667
+RENT_DAY = 27
+
+
+def ensure_monthly_rent():
+    """毎月27日以降に、翌月分の家賃をあかり立替で自動生成する"""
+    today = date.today()
+    if today.day < RENT_DAY:
+        return
+    if today.month == 12:
+        next_year, next_month = today.year + 1, 1
+    else:
+        next_year, next_month = today.year, today.month + 1
+    rent_date = f"{today.year}-{today.month:02d}-{RENT_DAY:02d}"
+    detail = f"{next_month}月分"
+    recurring_key = f"rent:{today.year}-{today.month:02d}"
+    with get_db() as conn:
+        conn.execute("""
+            INSERT OR IGNORE INTO expenses
+                (date, amount, category, detail, payment, notes, recurring_key)
+            VALUES (?, ?, '家賃', ?, 'あかり立替', '', ?)
+        """, (rent_date, RENT_AMOUNT, detail, recurring_key))
 
 
 @app.route("/")
@@ -100,6 +132,10 @@ def get_expenses():
     month = request.args.get("month", type=int)
     if not year or not month:
         return jsonify({"error": "year and month required"}), 400
+
+    today = date.today()
+    if year == today.year and month == today.month:
+        ensure_monthly_rent()
 
     month_str = f"{year}-{month:02d}"
     with get_db() as conn:
@@ -421,6 +457,7 @@ def set_budget():
 
 
 init_db()
+ensure_monthly_rent()
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
