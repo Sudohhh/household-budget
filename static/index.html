@@ -1259,34 +1259,48 @@ function parseFileMonth(filename) {
 function parseCsv(text, stmtYear, stmtMonth, budgetYear, budgetMonth) {
   const items = [];
   const lines = text.split(/\r?\n/);
-  // 予算月の末日（うるう年対応）
   const lastDay = new Date(budgetYear, budgetMonth, 0).getDate();
 
   for (const line of lines) {
     if (!line.trim()) continue;
     const cols = parseCsvLine(line);
-    if (cols.length < 7) continue;
     const dateStr = (cols[0] || '').trim();
-    if (!/^\d+月\d+日$/.test(dateStr)) continue;
-    const amount = parseInt((cols[6] || '').trim());
-    if (!amount || amount <= 0) continue;
-    const detail = (cols[3] || '').trim();
-    const dm = dateStr.match(/(\d+)月(\d+)日/);
-    const csvMonth = parseInt(dm[1]);
-    const csvDay = parseInt(dm[2]);
 
-    // 実際の日付（備考用）: 明細月基準で年を推定
-    const origYear = csvMonth > stmtMonth ? stmtYear - 1 : stmtYear;
-    const origDate = `${origYear}/${String(csvMonth).padStart(2,'0')}/${String(csvDay).padStart(2,'0')}`;
+    let csvYear, csvMonth, csvDay, detail, amount, origDate;
+
+    // 形式A: YYYY/M/D（三井住友等）
+    if (/^\d{4}\/\d{1,2}\/\d{1,2}$/.test(dateStr) && cols.length >= 3) {
+      const parts = dateStr.split('/');
+      csvYear = parseInt(parts[0]);
+      csvMonth = parseInt(parts[1]);
+      csvDay = parseInt(parts[2]);
+      detail = (cols[1] || '').trim();
+      const billing = parseInt((cols[5] || '').replace(/,/g, '').trim());
+      const usage   = parseInt((cols[2] || '').replace(/,/g, '').trim());
+      amount = billing > 0 ? billing : usage;
+
+    // 形式B: X月X日（旧形式）
+    } else if (/^\d+月\d+日$/.test(dateStr) && cols.length >= 7) {
+      const dm = dateStr.match(/(\d+)月(\d+)日/);
+      csvMonth = parseInt(dm[1]);
+      csvDay = parseInt(dm[2]);
+      csvYear = csvMonth > stmtMonth ? stmtYear - 1 : stmtYear;
+      detail = (cols[3] || '').trim();
+      amount = parseInt((cols[6] || '').trim());
+
+    } else {
+      continue;
+    }
+
+    if (!amount || amount <= 0 || !detail) continue;
+    origDate = `${csvYear}/${String(csvMonth).padStart(2,'0')}/${String(csvDay).padStart(2,'0')}`;
 
     let date, notes;
-    if (csvMonth === budgetMonth) {
-      // 同月: 実際の日付をそのまま使用
+    if (csvMonth === budgetMonth && csvYear === budgetYear) {
       const day = Math.min(csvDay, lastDay);
       date = `${budgetYear}-${String(budgetMonth).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
       notes = '';
     } else {
-      // 別月: 対象月の1日として登録、備考に実際の取引日を記載
       date = `${budgetYear}-${String(budgetMonth).padStart(2,'0')}-01`;
       notes = `実際: ${origDate}`;
     }
@@ -1332,9 +1346,19 @@ function renderCsvImport(el) {
           <span class="csv-item-name">${escHtml(item.detail)}</span>
           <span class="csv-item-amount">¥${item.amount.toLocaleString()}</span>
         </div>
-        <select class="csv-item-cat" onchange="state.csvItems[${i}].category=this.value">
-          ${buildCatOptions(item.category)}
-        </select>
+        <div style="display:flex;gap:6px;align-items:center;margin-top:5px">
+          <select class="csv-item-cat" style="flex:1" onchange="state.csvItems[${i}].category=this.value">
+            ${buildCatOptions(item.category)}
+          </select>
+          <span id="csv-notes-label-${i}" onclick="toggleCsvNotes(${i})"
+                style="font-size:12px;color:var(--primary);cursor:pointer;user-select:none;white-space:nowrap;flex-shrink:0">
+            ${item.notes ? '📝' : '＋備考'}
+          </span>
+        </div>
+        <input type="text" id="csv-notes-${i}" placeholder="備考を入力"
+               value="${escHtml(item.notes || '')}"
+               oninput="state.csvItems[${i}].notes=this.value; updateCsvNotesLabel(${i})"
+               style="display:${item.notes ? 'block' : 'none'};margin-top:4px;width:100%;padding:5px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;background:var(--bg);color:var(--text);box-sizing:border-box">
       </div>
     </div>
   `).join('');
@@ -1357,19 +1381,40 @@ function renderCsvImport(el) {
       <div style="font-size:12px;color:var(--muted);margin-bottom:4px">${items.length}件を検出 → <strong>${state.csvBudgetLabel}</strong>の支出として登録</div>
       ${itemsHtml}
 
-      <button class="btn-primary" id="csv-submit-btn" onclick="submitCsvImport()" style="margin-top:12px">
+      <div id="csv-total-bar" style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-top:1px solid var(--border);margin-top:8px;font-size:14px">
+        <span id="csv-total-count" style="color:var(--muted)">${checkedCount}件選択中</span>
+        <span id="csv-total-amount" style="font-weight:700;font-size:16px">合計 ¥${items.filter(i=>i.checked).reduce((s,i)=>s+i.amount,0).toLocaleString()}</span>
+      </div>
+      <button class="btn-primary" id="csv-submit-btn" onclick="submitCsvImport()" style="margin-top:4px">
         ${checkedCount}件を登録する
       </button>
     </div>
   `;
 }
 
+function toggleCsvNotes(i) {
+  const input = document.getElementById(`csv-notes-${i}`);
+  if (!input) return;
+  const show = input.style.display === 'none';
+  input.style.display = show ? 'block' : 'none';
+  if (show) input.focus();
+  else updateCsvNotesLabel(i);
+}
+
+function updateCsvNotesLabel(i) {
+  const label = document.getElementById(`csv-notes-label-${i}`);
+  if (!label) return;
+  label.textContent = state.csvItems[i].notes ? '📝' : '＋備考';
+}
+
 function updateCsvSubmitBtn() {
+  const checked = state.csvItems.filter(i => i.checked);
   const btn = document.getElementById('csv-submit-btn');
-  if (btn) {
-    const count = state.csvItems.filter(i => i.checked).length;
-    btn.textContent = `${count}件を登録する`;
-  }
+  if (btn) btn.textContent = `${checked.length}件を登録する`;
+  const countEl = document.getElementById('csv-total-count');
+  if (countEl) countEl.textContent = `${checked.length}件選択中`;
+  const amtEl = document.getElementById('csv-total-amount');
+  if (amtEl) amtEl.textContent = `合計 ¥${checked.reduce((s,i)=>s+i.amount,0).toLocaleString()}`;
 }
 
 function toggleCsvAll() {

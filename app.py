@@ -77,30 +77,38 @@ def init_db():
             CREATE UNIQUE INDEX IF NOT EXISTS idx_expenses_recurring_key
             ON expenses (recurring_key) WHERE recurring_key IS NOT NULL
         """)
+        conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses (date)
+        """)
 
 
 RENT_AMOUNT = 74667
 RENT_DAY = 27
+_rent_ensured_month = None
 
 
 def ensure_monthly_rent():
     """毎月27日以降に、翌月分の家賃をあかり立替で自動生成する"""
+    global _rent_ensured_month
     today = date.today()
     if today.day < RENT_DAY:
         return
+    month_key = (today.year, today.month)
+    if _rent_ensured_month == month_key:
+        return
     if today.month == 12:
-        next_year, next_month = today.year + 1, 1
+        next_month = 1
     else:
-        next_year, next_month = today.year, today.month + 1
+        next_month = today.month + 1
     rent_date = f"{today.year}-{today.month:02d}-{RENT_DAY:02d}"
-    detail = f"{next_month}月分"
     recurring_key = f"rent:{today.year}-{today.month:02d}"
     with get_db() as conn:
         conn.execute("""
             INSERT OR IGNORE INTO expenses
                 (date, amount, category, detail, payment, notes, recurring_key)
             VALUES (?, ?, '家賃', ?, 'あかり立替', '', ?)
-        """, (rent_date, RENT_AMOUNT, detail, recurring_key))
+        """, (rent_date, RENT_AMOUNT, f"{next_month}月分", recurring_key))
+    _rent_ensured_month = month_key
 
 
 @app.route("/")
@@ -137,14 +145,16 @@ def get_expenses():
     if year == today.year and month == today.month:
         ensure_monthly_rent()
 
-    month_str = f"{year}-{month:02d}"
+    d_from = f"{year}-{month:02d}-01"
+    next_y, next_m = (year + 1, 1) if month == 12 else (year, month + 1)
+    d_to = f"{next_y}-{next_m:02d}-01"
     with get_db() as conn:
         rows = conn.execute("""
             SELECT id, date, amount, category, detail, payment, notes
             FROM expenses
-            WHERE strftime('%Y-%m', date) = ?
+            WHERE date >= ? AND date < ?
             ORDER BY date DESC, id DESC
-        """, (month_str,)).fetchall()
+        """, (d_from, d_to)).fetchall()
     return jsonify([dict(r) for r in rows])
 
 
@@ -213,14 +223,16 @@ def get_summary():
     if not year or not month:
         return jsonify({"error": "year and month required"}), 400
 
-    month_str = f"{year}-{month:02d}"
+    d_from = f"{year}-{month:02d}-01"
+    next_y, next_m = (year + 1, 1) if month == 12 else (year, month + 1)
+    d_to = f"{next_y}-{next_m:02d}-01"
     with get_db() as conn:
         rows = conn.execute("""
             SELECT category, payment, SUM(amount) AS total
             FROM expenses
-            WHERE strftime('%Y-%m', date) = ?
+            WHERE date >= ? AND date < ?
             GROUP BY category, payment
-        """, (month_str,)).fetchall()
+        """, (d_from, d_to)).fetchall()
 
         budgets = conn.execute("""
             SELECT category, amount FROM budgets
@@ -364,10 +376,12 @@ def get_account():
                 "SELECT id FROM account_transactions WHERE auto_key = ?", (auto_key,)
             ).fetchone()
             if not existing:
+                pm_from = f"{prev_year}-{prev_month:02d}-01"
+                pm_to = f"{today.year}-{today.month:02d}-01"
                 card_total = conn.execute("""
                     SELECT COALESCE(SUM(amount), 0) AS total FROM expenses
-                    WHERE strftime('%Y-%m', date) = ? AND payment = '共通カード'
-                """, (f"{prev_year}-{prev_month:02d}",)).fetchone()["total"]
+                    WHERE date >= ? AND date < ? AND payment = '共通カード'
+                """, (pm_from, pm_to)).fetchone()["total"]
                 if card_total > 0:
                     card_suggestion = {
                         "year": prev_year, "month": prev_month,
