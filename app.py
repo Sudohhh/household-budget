@@ -129,7 +129,6 @@ def ensure_monthly_card_deduction():
 
     pm_from = f"{prev_year}-{prev_month:02d}-01"
     pm_to = f"{today.year}-{today.month:02d}-01"
-    # 引き落とし日は当月26日（未来日付になる場合もあるが記録上の日付として設定）
     card_date = f"{today.year}-{today.month:02d}-{CARD_DAY:02d}"
 
     with get_db() as conn:
@@ -288,14 +287,13 @@ def get_summary():
             WHERE year = ? AND month = ?
         """, (year, month)).fetchall()
 
-    # aggregate by category
     by_category = {}
     by_payment = {"共通カード": 0, "あかり立替": 0, "だいち立替": 0}
     for r in rows:
         cat = r["category"]
         by_category[cat] = by_category.get(cat, 0) + r["total"]
         if r["payment"] in by_payment:
-            by_payment[r["payment"]] += r[" total"]
+            by_payment[r["payment"]] += r["total"]
 
     budget_map = {b["category"]: b["amount"] for b in budgets}
     status_map = {s["person"]: s["status"] for s in statuses}
