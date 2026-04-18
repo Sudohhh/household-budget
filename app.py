@@ -111,6 +111,51 @@ def ensure_monthly_rent():
     _rent_ensured_month = month_key
 
 
+CARD_DAY = 26
+_card_ensured_month = None
+
+
+def ensure_monthly_card_deduction():
+    """毎月26日以降に、前月分の共通カード合計を口座取引に自動登録する"""
+    global _card_ensured_month
+    today = date.today()
+    if today.day < CARD_DAY:
+        return
+    month_key = (today.year, today.month)
+    if _card_ensured_month == month_key:
+        return
+
+    prev_year = today.year if today.month > 1 else today.year - 1
+    prev_month = today.month - 1 if today.month > 1 else 12
+    auto_key = f"card:{prev_year}-{prev_month:02d}"
+
+    pm_from = f"{prev_year}-{prev_month:02d}-01"
+    pm_to = f"{today.year}-{today.month:02d}-01"
+    card_date = f"{today.year}-{today.month:02d}-{CARD_DAY:02d}"
+
+    with get_db() as conn:
+        existing = conn.execute(
+            "SELECT id FROM account_transactions WHERE auto_key = ?", (auto_key,)
+        ).fetchone()
+        if existing:
+            _card_ensured_month = month_key
+            return
+
+        card_total = conn.execute("""
+            SELECT COALESCE(SUM(amount), 0) AS total FROM expenses
+            WHERE date >= ? AND date < ? AND payment = '共通カード'
+        """, (pm_from, pm_to)).fetchone()["total"]
+
+        if card_total > 0:
+            conn.execute("""
+                INSERT OR IGNORE INTO account_transactions
+                    (date, amount, type, notes, auto_key)
+                VALUES (?, ?, 'カード引き落とし', ?, ?)
+            """, (card_date, -card_total, f"{prev_year}年{prev_month}月分", auto_key))
+
+    _card_ensured_month = month_key
+
+
 @app.route("/")
 def index():
     return send_from_directory("static", "index.html")
@@ -354,7 +399,7 @@ def set_settlement_status():
 
 @app.route("/api/account", methods=["GET"])
 def get_account():
-    today = date.today()
+    ensure_monthly_card_deduction()
 
     with get_db() as conn:
         rows = conn.execute("""
@@ -366,33 +411,10 @@ def get_account():
             "SELECT COALESCE(SUM(amount), 0) AS balance FROM account_transactions"
         ).fetchone()
 
-        # 26日以降なら前月のカード引き落とし未登録チェック
-        card_suggestion = None
-        if today.day >= 26:
-            prev_year = today.year if today.month > 1 else today.year - 1
-            prev_month = today.month - 1 if today.month > 1 else 12
-            auto_key = f"card:{prev_year}-{prev_month:02d}"
-            existing = conn.execute(
-                "SELECT id FROM account_transactions WHERE auto_key = ?", (auto_key,)
-            ).fetchone()
-            if not existing:
-                pm_from = f"{prev_year}-{prev_month:02d}-01"
-                pm_to = f"{today.year}-{today.month:02d}-01"
-                card_total = conn.execute("""
-                    SELECT COALESCE(SUM(amount), 0) AS total FROM expenses
-                    WHERE date >= ? AND date < ? AND payment = '共通カード'
-                """, (pm_from, pm_to)).fetchone()["total"]
-                if card_total > 0:
-                    card_suggestion = {
-                        "year": prev_year, "month": prev_month,
-                        "amount": card_total, "auto_key": auto_key,
-                        "date": f"{today.year}-{today.month:02d}-26",
-                    }
-
     return jsonify({
         "transactions": [dict(r) for r in rows],
         "balance": balance_row["balance"],
-        "card_suggestion": card_suggestion,
+        "card_suggestion": None,
     })
 
 
@@ -472,6 +494,7 @@ def set_budget():
 
 init_db()
 ensure_monthly_rent()
+ensure_monthly_card_deduction()
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
