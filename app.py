@@ -116,11 +116,9 @@ _card_ensured_month = None
 
 
 def ensure_monthly_card_deduction():
-    """毎月26日以降に、前月分の共通カード合計を口座取引に自動登録する"""
+    """前月分の共通カード合計を口座取引に自動登録する（未登録なら日付に関わらず実行）"""
     global _card_ensured_month
     today = date.today()
-    if today.day < CARD_DAY:
-        return
     month_key = (today.year, today.month)
     if _card_ensured_month == month_key:
         return
@@ -131,6 +129,7 @@ def ensure_monthly_card_deduction():
 
     pm_from = f"{prev_year}-{prev_month:02d}-01"
     pm_to = f"{today.year}-{today.month:02d}-01"
+    # 引き落とし日は当月26日（未来日付になる場合もあるが記録上の日付として設定）
     card_date = f"{today.year}-{today.month:02d}-{CARD_DAY:02d}"
 
     with get_db() as conn:
@@ -296,7 +295,7 @@ def get_summary():
         cat = r["category"]
         by_category[cat] = by_category.get(cat, 0) + r["total"]
         if r["payment"] in by_payment:
-            by_payment[r["payment"]] += r["total"]
+            by_payment[r["payment"]] += r[" total"]
 
     budget_map = {b["category"]: b["amount"] for b in budgets}
     status_map = {s["person"]: s["status"] for s in statuses}
