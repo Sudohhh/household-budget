@@ -5,31 +5,37 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>ふたりの家計簿</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --primary: #6B8E9F;
-      --primary-light: #EDF3F6;
-      --accent: #E07070;
-      --green: #4BAF82;
-      --yellow: #E8B84B;
-      --bg: #F5F6F8;
-      --card: #fff;
-      --text: #2C3A4A;
-      --muted: #8A97A5;
-      --border: #E4E9EE;
+      --bg: #F7F6F3;
+      --card: #FFFFFF;
+      --primary: #C96442;
+      --primary-light: #FEF0EB;
+      --text: #1A1A1A;
+      --muted: #787878;
+      --border: #E6E4DC;
+      --green: #2D7D4F;
+      --green-light: #E8F5EE;
+      --red: #B83232;
+      --red-light: #FDEEED;
       --tab-h: 64px;
       --header-h: 56px;
+      --r: 12px;
+      --r-sm: 8px;
     }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       background: var(--bg);
       color: var(--text);
       min-height: 100dvh;
       max-width: 480px;
       margin: 0 auto;
+      -webkit-font-smoothing: antialiased;
     }
 
     /* ── Header ── */
@@ -38,39 +44,45 @@
       top: 0;
       z-index: 100;
       height: var(--header-h);
-      background: var(--primary);
-      color: #fff;
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
       display: flex;
       align-items: center;
       justify-content: space-between;
       padding: 0 16px;
-      box-shadow: 0 2px 8px rgba(107,142,159,0.25);
     }
-    header h1 { font-size: 17px; font-weight: 700; letter-spacing: 0.5px; }
-    header .month-nav { display: flex; align-items: center; gap: 8px; }
-    header .month-nav button {
-      background: rgba(255,255,255,0.25);
-      border: none;
-      color: #fff;
-      width: 30px; height: 30px;
-      border-radius: 50%;
-      font-size: 16px;
+    header h1 {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.3px;
+    }
+    .month-nav { display: flex; align-items: center; gap: 4px; }
+    .month-nav button {
+      width: 28px; height: 28px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: transparent;
+      color: var(--muted);
+      font-size: 15px;
       cursor: pointer;
       display: flex; align-items: center; justify-content: center;
+      transition: background 0.15s;
+      line-height: 1;
     }
-    header .month-nav select {
-      background: rgba(255,255,255,0.25);
-      border: none;
-      color: #fff;
+    .month-nav button:hover { background: var(--bg); }
+    .month-nav select {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--bg);
+      color: var(--text);
       padding: 5px 10px;
-      border-radius: 8px;
-      font-size: 15px; font-weight: 600;
+      font-size: 13px; font-weight: 600;
       cursor: pointer;
-      -webkit-appearance: none;
-      appearance: none;
-      text-align: center;
+      -webkit-appearance: none; appearance: none;
+      font-family: inherit;
+      outline: none;
     }
-    header .month-nav select option { background: #4a7080; color: #fff; }
 
     /* ── Tab bar ── */
     nav {
@@ -81,293 +93,362 @@
       height: var(--tab-h);
       background: var(--card);
       border-top: 1px solid var(--border);
-      display: flex; z-index: 100;
+      display: flex;
+      z-index: 100;
     }
     nav button {
       flex: 1; border: none; background: none;
       display: flex; flex-direction: column;
       align-items: center; justify-content: center;
-      gap: 3px; font-size: 9px; color: var(--muted);
-      cursor: pointer; transition: color .2s;
+      gap: 4px;
+      font-size: 10px; font-weight: 500;
+      color: var(--muted);
+      cursor: pointer;
+      transition: color 0.15s;
       padding-bottom: env(safe-area-inset-bottom);
+      font-family: inherit;
     }
     nav button.active { color: var(--primary); }
-    nav button .icon { font-size: 20px; line-height: 1; }
+    nav button svg { width: 20px; height: 20px; stroke-width: 1.8; }
 
-    /* ── Account tab ── */
-    .balance-card {
-      background: var(--primary); color: #fff;
-      border-radius: 20px; padding: 20px;
-      margin-bottom: 12px;
-    }
-    .balance-label { font-size: 13px; opacity: 0.8; margin-bottom: 4px; }
-    .balance-amount { font-size: 36px; font-weight: 800; }
-    .balance-amount span { font-size: 20px; }
-    .tx-item { display: flex; align-items: center; padding: 11px 0; border-bottom: 1px solid var(--border); gap: 10px; }
-    .tx-item:last-child { border-bottom: none; }
-    .tx-icon { width: 38px; height: 38px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 17px; flex-shrink: 0; }
-    .tx-icon.in  { background: #E8F5E9; }
-    .tx-icon.out { background: #FFF0F2; }
-    .tx-info { flex: 1; min-width: 0; }
-    .tx-name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .tx-sub  { font-size: 11px; color: var(--muted); margin-top: 2px; }
-    .tx-right { text-align: right; flex-shrink: 0; }
-    .tx-amount-in  { font-size: 15px; font-weight: 700; color: var(--green); }
-    .tx-amount-out { font-size: 15px; font-weight: 700; color: var(--accent); }
-    .tx-auto-badge { display: inline-block; background: #EEF0FF; color: var(--primary); font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 4px; margin-left: 4px; vertical-align: middle; }
-    .btn-add-tx {
-      width: 100%; padding: 12px;
-      background: none; border: 1.5px dashed var(--border);
-      color: var(--primary); border-radius: 10px;
-      font-size: 14px; cursor: pointer; margin-top: 8px;
-    }
-
-    /* ── Main content ── */
+    /* ── Main ── */
     main {
-      padding: 12px 12px calc(var(--tab-h) + 8px);
+      padding: 14px 13px calc(var(--tab-h) + 12px);
       min-height: calc(100dvh - var(--header-h));
     }
 
     /* ── Card ── */
     .card {
       background: var(--card);
-      border-radius: 16px;
+      border-radius: var(--r);
       padding: 16px;
-      margin-bottom: 12px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      margin-bottom: 10px;
+      border: 1px solid var(--border);
     }
     .card-title {
-      font-size: 12px; font-weight: 600; color: var(--muted);
-      text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px;
+      font-size: 10px; font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.9px;
+      margin-bottom: 14px;
     }
+
+    /* ── Hero card ── */
+    .hero-card {
+      background: var(--text);
+      color: #fff;
+      border-radius: var(--r);
+      padding: 20px;
+      margin-bottom: 10px;
+    }
+    .hero-label { font-size: 11px; font-weight: 500; opacity: 0.55; margin-bottom: 6px; letter-spacing: 0.3px; }
+    .hero-amount {
+      font-size: 40px; font-weight: 800;
+      letter-spacing: -2px;
+      line-height: 1;
+    }
+    .hero-amount span { font-size: 22px; font-weight: 600; opacity: 0.6; margin-right: 1px; letter-spacing: 0; }
 
     /* ── Form ── */
     .form-group { margin-bottom: 14px; }
     .form-group label {
-      display: block; font-size: 12px; font-weight: 600;
+      display: block; font-size: 11px; font-weight: 600;
       color: var(--muted); margin-bottom: 6px;
+      letter-spacing: 0.3px; text-transform: uppercase;
     }
     .form-group input,
     .form-group select {
-      width: 100%; padding: 12px 14px;
+      width: 100%; padding: 11px 13px;
       border: 1.5px solid var(--border);
-      border-radius: 10px; font-size: 15px;
+      border-radius: var(--r-sm);
+      font-size: 15px;
       background: var(--bg); color: var(--text);
-      outline: none; transition: border-color .2s;
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+      font-family: inherit;
       -webkit-appearance: none;
     }
     .form-group input:focus,
-    .form-group select:focus { border-color: var(--primary); }
-
-    /* Amount input wrapper */
-    .amount-wrap {
-      position: relative;
+    .form-group select:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px var(--primary-light);
     }
+
+    /* Amount input */
+    .amount-wrap { position: relative; }
     .amount-wrap .yen-symbol {
-      position: absolute;
-      left: 14px; top: 50%;
+      position: absolute; left: 13px; top: 50%;
       transform: translateY(-50%);
-      font-size: 20px; font-weight: 700;
+      font-size: 18px; font-weight: 600;
       color: var(--muted); pointer-events: none;
     }
     .amount-wrap input {
-      padding-left: 32px !important;
-      font-size: 26px !important;
+      padding-left: 30px !important;
+      font-size: 28px !important;
       font-weight: 800 !important;
       text-align: right;
       letter-spacing: -0.5px;
     }
     .amount-wrap input::placeholder { color: var(--border); }
 
-    /* Payment chips */
-    .chip-group { display: flex; gap: 8px; }
+    /* Chips */
+    .chip-group { display: flex; gap: 6px; }
     .chip {
-      flex: 1; padding: 10px 6px;
+      flex: 1; padding: 9px 4px;
       border: 1.5px solid var(--border);
-      border-radius: 10px; font-size: 13px; font-weight: 500;
+      border-radius: var(--r-sm);
+      font-size: 13px; font-weight: 500;
       text-align: center; cursor: pointer;
-      background: var(--bg); transition: all .15s;
+      background: var(--card);
+      transition: all 0.15s;
+      font-family: inherit;
     }
     .chip.selected {
       border-color: var(--primary);
       background: var(--primary-light);
       color: var(--primary);
+      font-weight: 600;
     }
-    .chip.disabled {
-      pointer-events: none;
-    }
+    .chip.disabled { pointer-events: none; opacity: 0.4; }
 
-    /* Submit button */
+    /* Buttons */
     .btn-primary {
-      width: 100%; padding: 15px;
+      width: 100%; padding: 14px;
       background: var(--primary); color: #fff;
-      border: none; border-radius: 12px;
-      font-size: 16px; font-weight: 700;
+      border: none; border-radius: var(--r-sm);
+      font-size: 15px; font-weight: 700;
       cursor: pointer; margin-top: 4px;
-      transition: opacity .2s;
+      transition: opacity 0.15s;
+      font-family: inherit;
+      letter-spacing: 0.1px;
     }
-    .btn-primary:active { opacity: 0.85; }
-    .btn-primary:disabled { opacity: 0.5; }
-
-    /* ── Summary page ── */
-    .total-card {
-      background: var(--primary); color: #fff;
-      border-radius: 20px; padding: 20px;
-      margin-bottom: 12px; text-align: center;
+    .btn-primary:active { opacity: 0.8; }
+    .btn-primary:disabled { opacity: 0.4; cursor: default; }
+    .btn-ghost {
+      width: 100%; padding: 11px;
+      background: none;
+      border: 1.5px dashed var(--border);
+      color: var(--muted);
+      border-radius: var(--r-sm);
+      font-size: 13px; font-weight: 500;
+      cursor: pointer; margin-top: 8px;
+      font-family: inherit;
+      transition: all 0.15s;
     }
-    .total-label { font-size: 13px; opacity: 0.8; margin-bottom: 4px; }
-    .total-amount { font-size: 36px; font-weight: 800; }
-    .total-amount span { font-size: 20px; }
+    .btn-ghost:hover { border-color: var(--primary); color: var(--primary); }
 
-    .cat-row-wrap { margin-bottom: 10px; }
-    .category-row { display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; }
-    .category-row .cat-name { width: 90px; font-size: 13px; font-weight: 500; flex-shrink: 0; }
-    .category-row .bar-wrap { flex: 1; height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; }
-    .category-row .bar-fill { height: 100%; border-radius: 4px; background: var(--primary); transition: width .5s ease; }
-    .category-row .bar-fill.over { background: var(--accent); }
-    .category-row .cat-amount { font-size: 13px; font-weight: 600; text-align: right; width: 68px; flex-shrink: 0; }
-    .cat-arrow { font-size: 10px; color: var(--muted); width: 10px; flex-shrink: 0; display: inline-block; transition: transform .2s; }
+    /* ── Summary ── */
+    .cat-row-wrap { margin-bottom: 6px; }
+    .category-row {
+      display: flex; align-items: center; gap: 8px;
+      cursor: pointer; user-select: none; padding: 5px 0;
+    }
+    .cat-name { width: 82px; font-size: 13px; font-weight: 500; flex-shrink: 0; color: var(--text); }
+    .bar-wrap { flex: 1; height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; }
+    .bar-fill { height: 100%; border-radius: 3px; background: var(--primary); transition: width 0.5s ease; }
+    .bar-fill.over { background: var(--red); }
+    .cat-amount { font-size: 13px; font-weight: 600; text-align: right; width: 66px; flex-shrink: 0; }
+    .cat-arrow { font-size: 8px; color: var(--muted); width: 10px; flex-shrink: 0; display: inline-block; transition: transform 0.2s; }
     .cat-arrow.open { transform: rotate(90deg); }
-    .cat-detail { display: none; padding: 2px 0 4px 0; }
+    .cat-detail { display: none; padding: 2px 0 4px; }
     .cat-detail.open { display: block; }
-    .cat-detail-row { display: flex; align-items: center; gap: 6px; padding: 5px 4px 5px 10px; border-bottom: 1px solid var(--border); }
+    .cat-detail-row {
+      display: flex; align-items: center; gap: 6px;
+      padding: 5px 4px 5px 10px;
+      border-bottom: 1px solid var(--border);
+    }
     .cat-detail-row:last-child { border-bottom: none; }
     .cat-detail-date { font-size: 11px; color: var(--muted); flex-shrink: 0; width: 28px; }
     .cat-detail-name { font-size: 12px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .cat-detail-amount { font-size: 12px; font-weight: 600; flex-shrink: 0; }
-    .section-header { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; margin: 16px 0 8px; }
 
-    .settlement-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .section-label {
+      font-size: 10px; font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.9px;
+      margin: 16px 0 8px;
+    }
+
+    /* Settlement */
+    .settlement-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 12px 0; border-bottom: 1px solid var(--border);
+    }
     .settlement-row:last-child { border-bottom: none; }
     .settlement-name { font-size: 15px; font-weight: 600; }
     .settlement-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
-    .settlement-amount { font-size: 16px; font-weight: 800; }
+    .settlement-amount { font-size: 15px; font-weight: 700; text-align: right; }
     .s-pay { color: var(--primary); }
     .s-recv { color: var(--green); }
-    .s-done { color: var(--muted); font-weight: 600; }
+    .s-done { color: var(--muted); font-weight: 500; font-size: 14px; }
 
     .status-select {
       display: inline-block;
-      padding: 5px 24px 5px 10px;
+      padding: 4px 22px 4px 9px;
       border-radius: 20px;
-      font-size: 13px; font-weight: 700;
+      font-size: 11px; font-weight: 700;
       cursor: pointer; border: none; outline: none;
       -webkit-appearance: none; appearance: none;
       background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='currentColor' opacity='.5'/%3E%3C/svg%3E");
       background-repeat: no-repeat;
-      background-position: right 8px center;
-      background-size: 8px;
+      background-position: right 7px center;
+      background-size: 7px;
+      font-family: inherit;
     }
-    .status-pending  { background-color: #FFF3E0; color: #E65100; }
-    .status-partial  { background-color: #FFF8E1; color: #F57F17; }
-    .status-completed { background-color: #E8F5E9; color: #2E7D32; }
+    .status-pending  { background-color: #FFF0E0; color: #B55A00; }
+    .status-partial  { background-color: #FFFBE0; color: #8A6800; }
+    .status-completed { background-color: #E8F5EE; color: #2D7D4F; }
 
-    /* ── History page ── */
-    .expense-item { display: flex; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border); gap: 10px; }
+    /* ── History ── */
+    .expense-item {
+      display: flex; align-items: center;
+      padding: 11px 0; border-bottom: 1px solid var(--border); gap: 10px;
+    }
     .expense-item:last-child { border-bottom: none; }
-    .expense-icon { width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; background: var(--primary-light); }
+    .expense-pip {
+      width: 6px; height: 6px; border-radius: 50%;
+      flex-shrink: 0; margin-top: 1px;
+    }
+    .pip-card { background: var(--primary); }
+    .pip-akari { background: #D63384; }
+    .pip-daichi { background: #0097A7; }
     .expense-info { flex: 1; min-width: 0; }
     .expense-name { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .expense-meta { font-size: 12px; color: var(--muted); display: flex; gap: 6px; align-items: center; margin-top: 2px; }
+    .expense-meta { font-size: 11px; color: var(--muted); display: flex; gap: 6px; align-items: center; margin-top: 2px; }
     .expense-notes { font-size: 11px; color: var(--muted); margin-top: 2px; }
     .expense-right { text-align: right; flex-shrink: 0; }
-    .expense-amount { font-size: 15px; font-weight: 700; }
+    .expense-amount { font-size: 14px; font-weight: 700; }
 
-    .item-btns { display: flex; gap: 6px; flex-shrink: 0; }
+    .item-btns { display: flex; gap: 5px; flex-shrink: 0; }
     .edit-btn {
-      width: 30px; height: 30px; border: none;
-      background: var(--primary-light); color: var(--primary);
-      border-radius: 8px; font-size: 14px; cursor: pointer;
+      width: 28px; height: 28px; border: none;
+      background: var(--bg); color: var(--muted);
+      border-radius: 6px; cursor: pointer;
       display: flex; align-items: center; justify-content: center;
     }
     .delete-btn {
-      width: 30px; height: 30px; border: none;
-      background: #FFF0F2; color: var(--accent);
-      border-radius: 8px; font-size: 15px; cursor: pointer;
+      width: 28px; height: 28px; border: none;
+      background: var(--red-light); color: var(--red);
+      border-radius: 6px; cursor: pointer;
       display: flex; align-items: center; justify-content: center;
+      font-size: 14px;
     }
+    .date-group-header { font-size: 11px; font-weight: 700; color: var(--muted); padding: 8px 0 4px; letter-spacing: 0.2px; }
 
-    .date-group-header { font-size: 12px; font-weight: 700; color: var(--muted); padding: 8px 0 4px; }
+    /* Badge */
+    .badge { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; }
+    .badge-card { background: var(--primary-light); color: var(--primary); }
+    .badge-akari { background: #FFE0EB; color: #C01E6E; }
+    .badge-daichi { background: #E0F7FA; color: #00838F; }
 
-    /* Payment badge */
-    .badge { display: inline-block; padding: 2px 7px; border-radius: 6px; font-size: 11px; font-weight: 600; }
-    .badge-card { background: #EEF0FF; color: var(--primary); }
-    .badge-akari { background: #FFE0EB; color: #D63384; }
-    .badge-daichi { background: #E0F7FA; color: #0097A7; }
+    /* ── Account ── */
+    .tx-item {
+      display: flex; align-items: center;
+      padding: 10px 0; border-bottom: 1px solid var(--border); gap: 10px;
+    }
+    .tx-item:last-child { border-bottom: none; }
+    .tx-icon-wrap {
+      width: 36px; height: 36px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .tx-icon-wrap.in { background: var(--green-light); color: var(--green); }
+    .tx-icon-wrap.out { background: var(--red-light); color: var(--red); }
+    .tx-icon-wrap svg { width: 16px; height: 16px; stroke-width: 2; }
+    .tx-info { flex: 1; min-width: 0; }
+    .tx-name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tx-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .tx-right { text-align: right; flex-shrink: 0; }
+    .tx-amount-in { font-size: 14px; font-weight: 700; color: var(--green); }
+    .tx-amount-out { font-size: 14px; font-weight: 700; color: var(--red); }
+    .tx-auto-badge {
+      display: inline-block;
+      background: #EEF2FF; color: #4338CA;
+      font-size: 9px; font-weight: 700;
+      padding: 1px 5px; border-radius: 3px;
+      margin-left: 4px; vertical-align: middle;
+    }
+    .btn-add-tx {
+      width: 100%; padding: 11px;
+      background: none; border: 1.5px dashed var(--border);
+      color: var(--muted); border-radius: var(--r-sm);
+      font-size: 13px; font-weight: 500;
+      cursor: pointer; margin-bottom: 10px;
+      font-family: inherit; transition: all 0.15s;
+    }
+    .btn-add-tx:hover { border-color: var(--primary); color: var(--primary); }
 
-    .empty-state { text-align: center; padding: 40px 20px; color: var(--muted); }
-    .empty-state .empty-icon { font-size: 48px; margin-bottom: 12px; }
-
-    /* ── Edit modal (bottom sheet) ── */
+    /* ── Modal ── */
     #modal-overlay {
       position: fixed; inset: 0;
-      background: rgba(0,0,0,0.4);
+      background: rgba(0,0,0,0.3);
       z-index: 300;
       display: none;
       align-items: flex-start;
-      padding-top: 15dvh;
+      padding-top: 12dvh;
       justify-content: center;
     }
     #modal-overlay.open { display: flex; }
     #modal-sheet {
-      width: calc(100% - 32px); max-width: 480px;
+      width: calc(100% - 28px); max-width: 480px;
       background: var(--card);
-      border-radius: 20px;
-      padding: 20px 16px 20px;
-      max-height: 80dvh;
+      border-radius: 16px;
+      padding: 20px 16px;
+      max-height: 82dvh;
       overflow-y: auto;
       opacity: 0;
-      transform: translateY(-12px);
-      transition: opacity .2s ease, transform .2s ease;
+      transform: translateY(-10px);
+      transition: opacity 0.2s ease, transform 0.2s ease;
     }
     #modal-overlay.open #modal-sheet { opacity: 1; transform: translateY(0); }
-    .modal-handle {
-      width: 40px; height: 4px;
-      background: var(--border); border-radius: 2px;
-      margin: 0 auto 16px;
-    }
     .modal-title { font-size: 16px; font-weight: 700; margin-bottom: 16px; }
-    .modal-actions { display: flex; gap: 10px; margin-top: 4px; }
+    .modal-actions { display: flex; gap: 8px; margin-top: 4px; }
     .btn-cancel {
-      flex: 1; padding: 14px;
+      flex: 1; padding: 13px;
       background: var(--bg); color: var(--text);
       border: 1.5px solid var(--border);
-      border-radius: 12px; font-size: 15px; font-weight: 600;
-      cursor: pointer;
+      border-radius: var(--r-sm); font-size: 14px; font-weight: 600;
+      cursor: pointer; font-family: inherit;
     }
     .btn-save {
-      flex: 2; padding: 14px;
+      flex: 2; padding: 13px;
       background: var(--primary); color: #fff;
-      border: none; border-radius: 12px;
-      font-size: 15px; font-weight: 700;
-      cursor: pointer;
+      border: none; border-radius: var(--r-sm);
+      font-size: 14px; font-weight: 700;
+      cursor: pointer; font-family: inherit;
     }
-    .btn-save:disabled { opacity: 0.5; }
+    .btn-save:disabled { opacity: 0.4; }
 
     /* Toast */
     #toast {
       position: fixed;
-      bottom: calc(var(--tab-h) + 16px); left: 50%;
-      transform: translateX(-50%) translateY(20px);
-      background: #1A1A2E; color: #fff;
-      padding: 10px 20px; border-radius: 24px;
-      font-size: 14px; font-weight: 600;
-      opacity: 0; transition: all .3s; z-index: 400;
+      bottom: calc(var(--tab-h) + 14px); left: 50%;
+      transform: translateX(-50%) translateY(16px);
+      background: #1A1A1A; color: #fff;
+      padding: 10px 18px; border-radius: 20px;
+      font-size: 13px; font-weight: 600;
+      opacity: 0; transition: all 0.25s; z-index: 400;
       white-space: nowrap;
     }
     #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
-    .loading { text-align: center; padding: 30px; color: var(--muted); }
+    .loading { text-align: center; padding: 40px; color: var(--muted); font-size: 14px; }
 
-    /* ── CSV import ── */
+    .empty-state { text-align: center; padding: 48px 20px; color: var(--muted); }
+    .empty-state svg { opacity: 0.3; margin-bottom: 12px; }
+    .empty-state p { font-size: 14px; }
+
+    /* ── CSV ── */
     .btn-csv {
       width: 100%; padding: 10px;
       background: none; border: 1.5px dashed var(--border);
-      color: var(--primary); border-radius: 10px;
-      font-size: 14px; cursor: pointer; margin-top: 8px;
+      color: var(--muted); border-radius: var(--r-sm);
+      font-size: 13px; cursor: pointer; margin-top: 8px;
+      font-family: inherit;
     }
     .csv-import-header { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
-    .csv-back-btn { background: none; border: none; font-size: 22px; cursor: pointer; color: var(--text); padding: 0; line-height: 1; }
+    .csv-back-btn { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--text); padding: 0; line-height: 1; }
     .csv-select-all { font-size: 13px; color: var(--primary); cursor: pointer; text-decoration: underline; }
     .csv-item { display: flex; align-items: flex-start; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--border); }
     .csv-item:last-child { border-bottom: none; }
@@ -377,14 +458,14 @@
     .csv-item-date { font-size: 12px; color: var(--muted); flex-shrink: 0; }
     .csv-item-name { font-size: 13px; font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
     .csv-item-amount { font-size: 13px; font-weight: 700; flex-shrink: 0; }
-    .csv-item-cat { width: 100%; padding: 6px 10px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 13px; background: var(--bg); color: var(--text); -webkit-appearance: none; }
+    .csv-item-cat { width: 100%; padding: 6px 10px; border: 1.5px solid var(--border); border-radius: 6px; font-size: 13px; background: var(--bg); color: var(--text); -webkit-appearance: none; font-family: inherit; }
   </style>
 </head>
 <body>
 
 <header>
-  <h1>💑 ふたりの家計簿</h1>
-  <div class="month-nav">
+  <h1>ふたりの家計簿</h1>
+  <div class="month-nav" id="month-nav-wrap">
     <button onclick="changeMonth(-1)">‹</button>
     <select id="month-select" onchange="onMonthSelect(this.value)"></select>
     <button onclick="changeMonth(1)">›</button>
@@ -395,24 +476,35 @@
 
 <nav>
   <button class="active" onclick="showTab('input')" id="tab-input">
-    <span class="icon">✏️</span>入力
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/>
+    </svg>
+    入力
   </button>
   <button onclick="showTab('summary')" id="tab-summary">
-    <span class="icon">📊</span>今月
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="18" y="3" width="4" height="18"/><rect x="10" y="8" width="4" height="13"/><rect x="2" y="13" width="4" height="8"/>
+    </svg>
+    今月
   </button>
   <button onclick="showTab('history')" id="tab-history">
-    <span class="icon">📋</span>詳細
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/>
+      <circle cx="3" cy="6" r="0.5" fill="currentColor"/><circle cx="3" cy="12" r="0.5" fill="currentColor"/><circle cx="3" cy="18" r="0.5" fill="currentColor"/>
+    </svg>
+    詳細
   </button>
   <button onclick="showTab('account')" id="tab-account">
-    <span class="icon">🏦</span>口座
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/>
+    </svg>
+    口座
   </button>
 </nav>
 
-<!-- Edit modal -->
 <div id="modal-overlay" onclick="closeModal(event)">
   <div id="modal-sheet">
-    <div class="modal-handle"></div>
-    <div class="modal-title">支出を編集</div>
+    <div class="modal-title" id="modal-title-text">支出を編集</div>
     <div id="modal-body"></div>
   </div>
 </div>
@@ -441,18 +533,12 @@ let state = {
   accountForm: false,
 };
 
-const CATEGORY_ICONS = {
-  '食費': '🛒', '生活雑費': '🧴', '家賃': '🏠', '水道光熱費': '💡',
-  '家具・家電': '🛋️', 'その他': '📦', '外食': '🍜', 'デート': '💕',
-  '旅行': '✈️', '嗜好品': '🍷',
-};
 const PAYMENT_LABEL = {
   '共通カード': '共通カード',
   'あかり立替': 'あかり',
   'だいち立替': 'だいち',
 };
 
-// 上限月: 今月の翌月
 function getMaxMonth() {
   const m = today.getMonth() + 2;
   return m > 12
@@ -476,13 +562,10 @@ async function init() {
   state.payments = catData.payments;
 
   const max = getMaxMonth();
-  // 上限月以内のみ表示
   state.months = monthsData.filter(m => withinMax(m.year, m.month));
-  // 今月がなければ追加
   if (!state.months.some(m => m.year === state.year && m.month === state.month)) {
     state.months.unshift({ year: state.year, month: state.month });
   }
-  // 翌月がなければ追加
   if (!state.months.some(m => m.year === max.year && m.month === max.month)) {
     state.months.unshift({ year: max.year, month: max.month });
     state.months.sort((a, b) => b.year !== a.year ? b.year - a.year : b.month - a.month);
@@ -512,8 +595,8 @@ function onMonthSelect(value) {
 function changeMonth(delta) {
   let newYear = state.year, newMonth = state.month + delta;
   if (newMonth > 12) { newMonth = 1; newYear++; }
-  if (newMonth < 1) { newMonth = 12; newYear--; }
-  if (!withinMax(newYear, newMonth)) return; // 上限月を超えない
+  if (newMonth < 1)  { newMonth = 12; newYear--; }
+  if (!withinMax(newYear, newMonth)) return;
   state.year = newYear;
   state.month = newMonth;
   if (!state.months.some(m => m.year === state.year && m.month === state.month)) {
@@ -531,20 +614,20 @@ function showTab(tab) {
   ['account', 'input', 'summary', 'history'].forEach(t => {
     document.getElementById(`tab-${t}`).classList.toggle('active', t === tab);
   });
-  document.querySelector('.month-nav').style.display = tab === 'account' ? 'none' : 'flex';
+  document.getElementById('month-nav-wrap').style.display = tab === 'account' ? 'none' : 'flex';
   renderTab(tab);
 }
 
 function renderTab(tab) {
   const el = document.getElementById('main-content');
-  el.innerHTML = '<div class="loading">読み込み中...</div>';
+  el.innerHTML = '<div class="loading">読み込み中…</div>';
   if (tab === 'account') renderAccount(el);
   else if (tab === 'input') renderInput(el);
   else if (tab === 'summary') renderSummary(el);
   else renderHistory(el);
 }
 
-// ── Amount formatting ──
+// ── Amount helpers ──
 function setupAmountInput(inputId) {
   const input = document.getElementById(inputId);
   input.addEventListener('input', () => {
@@ -552,27 +635,24 @@ function setupAmountInput(inputId) {
     input.value = raw ? Number(raw).toLocaleString('ja-JP') : '';
   });
 }
-
 function getAmountRaw(inputId) {
   const val = document.getElementById(inputId).value.replace(/[^0-9]/g, '');
   return val ? parseInt(val, 10) : 0;
 }
-
 function setAmountFormatted(inputId, value) {
-  document.getElementById(inputId).value =
-    value ? Number(value).toLocaleString('ja-JP') : '';
+  document.getElementById(inputId).value = value ? Number(value).toLocaleString('ja-JP') : '';
 }
 
-// ── Category options HTML ──
+// ── Category options ──
 function buildCatOptions(selected) {
   return Object.entries(state.categories).map(([group, subs]) =>
     `<optgroup label="${group}">${subs.map(s =>
-      `<option value="${s}" ${s === selected ? 'selected' : ''}>${CATEGORY_ICONS[s] || ''} ${s}</option>`
+      `<option value="${s}" ${s === selected ? 'selected' : ''}>${s}</option>`
     ).join('')}</optgroup>`
   ).join('');
 }
 
-// ── Payment chips HTML ──
+// ── Payment chips ──
 function buildChips(containerId, selected, disabledList = []) {
   return state.payments.map(p => {
     const isDisabled = disabledList.includes(p);
@@ -581,13 +661,11 @@ function buildChips(containerId, selected, disabledList = []) {
           ${isDisabled ? '' : `onclick="selectChip('${containerId}', '${p}')"`}>${PAYMENT_LABEL[p] || p}</div>`;
   }).join('');
 }
-
 function selectChip(containerId, payment) {
   document.querySelectorAll(`#${containerId} .chip`).forEach(el => {
     el.classList.toggle('selected', el.dataset.payment === payment);
   });
 }
-
 function getSelectedChip(containerId) {
   const el = document.querySelector(`#${containerId} .chip.selected`);
   return el ? el.dataset.payment : state.payments[0];
@@ -619,7 +697,7 @@ function renderInput(el) {
 
       <div class="form-group">
         <label>内容（お店など）</label>
-        <input type="text" id="f-detail" placeholder="例: フェルナ、スギ薬局..." list="detail-list" autocomplete="off">
+        <input type="text" id="f-detail" placeholder="例: フェルナ、スギ薬局…" list="detail-list" autocomplete="off">
       </div>
 
       <div class="form-group">
@@ -635,9 +713,8 @@ function renderInput(el) {
       </div>
 
       <button class="btn-primary" onclick="submitExpense()">追加する</button>
-
-      <button class="btn-csv" onclick="document.getElementById('csv-file-input').click()">
-        📄 CSVから一括読み込み
+      <button class="btn-ghost" onclick="document.getElementById('csv-file-input').click()">
+        CSVから一括読み込み
       </button>
       <input type="file" id="csv-file-input" accept=".csv" style="display:none" onchange="handleCsvFile(this)">
     </div>
@@ -658,7 +735,6 @@ async function submitExpense() {
   if (!date) { showToast('日付を選択してください'); return; }
 
   state.selectedPayment = payment;
-
   const btn = document.querySelector('.btn-primary');
   btn.disabled = true;
   const res = await fetch('/api/expenses', {
@@ -669,7 +745,7 @@ async function submitExpense() {
   btn.disabled = false;
 
   if (res.ok) {
-    showToast(`✅ ${category} ¥${amount.toLocaleString()} を追加しました`);
+    showToast(`${category} ¥${amount.toLocaleString()} を追加しました`);
     document.getElementById('f-amount').value = '';
     document.getElementById('f-detail').value = '';
     document.getElementById('f-notes').value = '';
@@ -717,7 +793,7 @@ async function renderSummary(el) {
       return `
         <div class="cat-row-wrap">
           <div class="category-row" onclick="toggleCatDetail('${id}', this)">
-            <div class="cat-name">${CATEGORY_ICONS[c.name] || ''} ${c.name}</div>
+            <div class="cat-name">${c.name}</div>
             <div class="bar-wrap"><div class="bar-fill ${over ? 'over' : ''}" style="width:${pct}%"></div></div>
             <div class="cat-amount">¥${c.amount.toLocaleString()}</div>
             <span class="cat-arrow">▸</span>
@@ -730,7 +806,6 @@ async function renderSummary(el) {
   const akari = settlement.akari_owes;
   const daichi = settlement.daichi_owes;
   const STATUS_LABEL = { pending: '未振込', partial: '一部振込', completed: '振込完了' };
-  const STATUS_CYCLE = { pending: 'partial', partial: 'completed', completed: 'pending' };
 
   function settlementText(owes, otherOwes, otherName) {
     if (owes > 0) {
@@ -755,9 +830,9 @@ async function renderSummary(el) {
   }
 
   el.innerHTML = `
-    <div class="total-card">
-      <div class="total-label">${state.year}年${state.month}月の合計</div>
-      <div class="total-amount"><span>¥</span>${total.toLocaleString()}</div>
+    <div class="hero-card">
+      <div class="hero-label">${state.year}年${state.month}月の合計</div>
+      <div class="hero-amount"><span>¥</span>${total.toLocaleString()}</div>
     </div>
 
     <div class="card">
@@ -770,7 +845,7 @@ async function renderSummary(el) {
           </div>
           <div class="settlement-sub">立替済み ¥${settlement.akari_paid.toLocaleString()}</div>
         </div>
-        <div class="settlement-amount" style="text-align:right">${settlementText(akari, daichi, 'だいち')}</div>
+        <div class="settlement-amount">${settlementText(akari, daichi, 'だいち')}</div>
       </div>
       <div class="settlement-row">
         <div>
@@ -780,19 +855,19 @@ async function renderSummary(el) {
           </div>
           <div class="settlement-sub">立替済み ¥${settlement.daichi_paid.toLocaleString()}</div>
         </div>
-        <div class="settlement-amount" style="text-align:right">${settlementText(daichi, akari, 'あかり')}</div>
+        <div class="settlement-amount">${settlementText(daichi, akari, 'あかり')}</div>
       </div>
       <div class="settlement-row">
-        <div><div class="settlement-name" style="color:var(--muted)">共通カード</div></div>
+        <div class="settlement-name" style="color:var(--muted);font-size:14px">共通カード</div>
         <div style="font-size:14px;font-weight:600">¥${by_payment['共通カード'].toLocaleString()}</div>
       </div>
     </div>
 
     <div class="card">
       <div class="card-title">カテゴリー別</div>
-      <div class="section-header">生活費</div>
+      <div class="section-label">生活費</div>
       ${catRows(livingCats)}
-      <div class="section-header">娯楽費</div>
+      <div class="section-label">娯楽費</div>
       ${catRows(funCats)}
     </div>
   `;
@@ -823,10 +898,9 @@ async function changeStatus(person, selectEl, owes = 0) {
 const TX_TYPES = ['振込入金(あかり)', '振込入金(だいち)', 'カード引き落とし', '利息', 'その他入金', 'その他出金'];
 const TX_PERSON = { '振込入金(あかり)': 'akari', '振込入金(だいち)': 'daichi' };
 const TX_IS_IN = type => !type.includes('引き落とし') && !type.includes('出金');
-const TX_ICON = {
-  '振込入金(あかり)': '💸', '振込入金(だいち)': '💸',
-  'カード引き落とし': '💳', '利息': '📈', 'その他入金': '💰', 'その他出金': '📤',
-};
+
+const SVG_ARROW_DOWN = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>`;
+const SVG_ARROW_UP   = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>`;
 
 function txItemHtml(tx) {
   const isIn = TX_IS_IN(tx.type);
@@ -836,17 +910,19 @@ function txItemHtml(tx) {
   const autoTag = tx.auto_key ? '<span class="tx-auto-badge">自動</span>' : '';
   return `
     <div class="tx-item">
-      <div class="tx-icon ${isIn ? 'in' : 'out'}">${TX_ICON[tx.type] || (isIn ? '💰' : '📤')}</div>
+      <div class="tx-icon-wrap ${isIn ? 'in' : 'out'}">${isIn ? SVG_ARROW_DOWN : SVG_ARROW_UP}</div>
       <div class="tx-info">
         <div class="tx-name">${escHtml(tx.type)}${autoTag}</div>
         <div class="tx-sub">${dateLabel}${tx.notes ? ' · ' + escHtml(tx.notes) : ''}</div>
       </div>
       <div class="tx-right">
-        <div class="${isIn ? 'tx-amount-in' : 'tx-amount-out'}">${isIn ? '+' : '-'}¥${amountAbs.toLocaleString()}</div>
+        <div class="${isIn ? 'tx-amount-in' : 'tx-amount-out'}">${isIn ? '+' : '−'}¥${amountAbs.toLocaleString()}</div>
       </div>
       <div class="item-btns">
-        <button class="edit-btn" onclick="openAccountEdit(${tx.id})" title="編集">✎</button>
-        <button class="delete-btn" onclick="deleteAccountTx(${tx.id})" title="削除">×</button>
+        <button class="edit-btn" onclick="openAccountEdit(${tx.id})">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </button>
+        <button class="delete-btn" onclick="deleteAccountTx(${tx.id})">×</button>
       </div>
     </div>`;
 }
@@ -856,28 +932,13 @@ async function renderAccount(el) {
 
   const res = await fetch('/api/account');
   const data = await res.json();
-  const { transactions, balance, card_suggestion } = data;
+  const { transactions, balance } = data;
   accountTxCache = transactions;
 
-  const balanceColor = balance < 0 ? 'color:var(--accent)' : '';
-
-  // カード引き落とし提案バナー
-  const suggestionHtml = card_suggestion ? `
-    <div class="card" style="border:1.5px solid var(--accent);background:#FFF8F8">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
-        <div>
-          <div style="font-size:13px;font-weight:700">💳 カード引き落とし</div>
-          <div style="font-size:12px;color:var(--muted);margin-top:2px">${card_suggestion.year}年${card_suggestion.month}月分 ¥${card_suggestion.amount.toLocaleString()}</div>
-        </div>
-        <button class="btn-primary" style="width:auto;padding:10px 16px;font-size:13px;margin:0"
-          onclick="registerCardSuggestion(${JSON.stringify(card_suggestion).split('"').join('&quot;')})">登録する</button>
-      </div>
-    </div>` : '';
-
-  // 月ごとにグループ化
+  const isNeg = balance < 0;
   const grouped = {};
   for (const tx of transactions) {
-    const key = tx.date.slice(0, 7); // 'YYYY-MM'
+    const key = tx.date.slice(0, 7);
     if (!grouped[key]) grouped[key] = [];
     grouped[key].push(tx);
   }
@@ -887,26 +948,24 @@ async function renderAccount(el) {
     .map(([key, txs]) => {
       const [y, m] = key.split('-').map(Number);
       const monthTotal = txs.reduce((s, t) => s + t.amount, 0);
-      const sign = monthTotal >= 0 ? '+' : '';
+      const sign = monthTotal >= 0 ? '+' : '−';
+      const color = monthTotal >= 0 ? 'var(--green)' : 'var(--red)';
       return `
         <div class="card">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
             <div class="card-title" style="margin:0">${y}年${m}月</div>
-            <div style="font-size:12px;font-weight:600;color:${monthTotal >= 0 ? 'var(--green)' : 'var(--accent)'}">
-              ${sign}¥${Math.abs(monthTotal).toLocaleString()}
-            </div>
+            <div style="font-size:12px;font-weight:600;color:${color}">${sign}¥${Math.abs(monthTotal).toLocaleString()}</div>
           </div>
           ${txs.map(txItemHtml).join('')}
         </div>`;
     }).join('') || '<div class="card"><div style="color:var(--muted);font-size:13px">記録がありません</div></div>';
 
   el.innerHTML = `
-    <div class="balance-card">
-      <div class="balance-label">口座残高（累計）</div>
-      <div class="balance-amount" style="${balanceColor}"><span>¥</span>${Math.abs(balance).toLocaleString()}</div>
+    <div class="hero-card" style="${isNeg ? 'background:#9B2226' : ''}">
+      <div class="hero-label">口座残高（累計）</div>
+      <div class="hero-amount"><span>¥</span>${Math.abs(balance).toLocaleString()}</div>
     </div>
-    <button class="btn-add-tx" style="margin-bottom:8px" onclick="state.accountForm=true;renderTab('account')">＋ 入出金を追加</button>
-    ${suggestionHtml}
+    <button class="btn-add-tx" onclick="state.accountForm=true;renderTab('account')">+ 入出金を追加</button>
     ${monthsHtml}
   `;
 }
@@ -961,27 +1020,7 @@ async function submitAccountTx() {
   });
   if (res.ok) {
     state.accountForm = false;
-    showToast(`✅ ${type} ¥${amount.toLocaleString()} を追加しました`);
-    renderTab('account');
-  } else {
-    showToast('エラーが発生しました');
-  }
-}
-
-async function registerCardSuggestion(suggestion) {
-  const res = await fetch('/api/account', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      date: suggestion.date,
-      amount: -suggestion.amount,
-      type: 'カード引き落とし',
-      notes: `${suggestion.year}年${suggestion.month}月分`,
-      auto_key: suggestion.auto_key,
-    }),
-  });
-  if (res.ok) {
-    showToast(`✅ カード引き落とし ¥${suggestion.amount.toLocaleString()} を登録しました`);
+    showToast(`${type} ¥${amount.toLocaleString()} を追加しました`);
     renderTab('account');
   } else {
     showToast('エラーが発生しました');
@@ -999,7 +1038,7 @@ function openAccountEdit(id) {
   if (!tx) return;
   editingAccountTx = tx;
 
-  document.querySelector('.modal-title').textContent = '入出金を編集';
+  document.getElementById('modal-title-text').textContent = '入出金を編集';
   const body = document.getElementById('modal-body');
   const amountAbs = Math.abs(tx.amount);
   body.innerHTML = `
@@ -1029,9 +1068,7 @@ function openAccountEdit(id) {
   `;
   setupAmountInput('ea-amount');
   setAmountFormatted('ea-amount', amountAbs);
-
-  const overlay = document.getElementById('modal-overlay');
-  overlay.classList.add('open');
+  document.getElementById('modal-overlay').classList.add('open');
   document.getElementById('modal-sheet').scrollTop = 0;
 }
 
@@ -1057,7 +1094,7 @@ async function saveAccountEdit() {
   if (res.ok) {
     document.getElementById('modal-overlay').classList.remove('open');
     editingAccountTx = null;
-    showToast('✅ 更新しました');
+    showToast('更新しました');
     renderTab('account');
   } else {
     showToast('エラーが発生しました');
@@ -1080,8 +1117,10 @@ async function renderHistory(el) {
   if (expenses.length === 0) {
     el.innerHTML = `
       <div class="empty-state">
-        <div class="empty-icon">📭</div>
-        <div>この月の記録はありません</div>
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+        </svg>
+        <p>この月の記録はありません</p>
       </div>`;
     return;
   }
@@ -1099,7 +1138,7 @@ async function renderHistory(el) {
       const label = `${d.getMonth()+1}月${d.getDate()}日（${'日月火水木金土'[d.getDay()]}）`;
       const rows = items.map(e => `
         <div class="expense-item">
-          <div class="expense-icon">${CATEGORY_ICONS[e.category] || '💴'}</div>
+          <div class="expense-pip ${pipClass(e.payment)}"></div>
           <div class="expense-info">
             <div class="expense-name">${escHtml(e.detail || e.category)}</div>
             <div class="expense-meta">
@@ -1112,8 +1151,10 @@ async function renderHistory(el) {
             <div class="expense-amount">¥${e.amount.toLocaleString()}</div>
           </div>
           <div class="item-btns">
-            <button class="edit-btn" onclick="openEdit(${e.id})" title="編集">✎</button>
-            <button class="delete-btn" onclick="deleteExpense(${e.id})" title="削除">×</button>
+            <button class="edit-btn" onclick="openEdit(${e.id})">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </button>
+            <button class="delete-btn" onclick="deleteExpense(${e.id})">×</button>
           </div>
         </div>
       `).join('');
@@ -1135,7 +1176,7 @@ async function openEdit(id) {
   if (!e) return;
   editingExpense = e;
 
-  document.querySelector('.modal-title').textContent = '支出を編集';
+  document.getElementById('modal-title-text').textContent = '支出を編集';
   const body = document.getElementById('modal-body');
   body.innerHTML = `
     <div class="form-group">
@@ -1172,13 +1213,9 @@ async function openEdit(id) {
       <button class="btn-save" id="btn-save" onclick="saveEdit()">保存する</button>
     </div>
   `;
-
   setupAmountInput('e-amount');
   setAmountFormatted('e-amount', e.amount);
-
-  const overlay = document.getElementById('modal-overlay');
-  overlay.classList.add('open');
-  // Scroll modal into view
+  document.getElementById('modal-overlay').classList.add('open');
   document.getElementById('modal-sheet').scrollTop = 0;
 }
 
@@ -1212,21 +1249,17 @@ async function saveEdit() {
   if (res.ok) {
     document.getElementById('modal-overlay').classList.remove('open');
     editingExpense = null;
-    showToast('✅ 更新しました');
+    showToast('更新しました');
     renderTab('history');
   } else {
     showToast('エラーが発生しました');
   }
 }
 
-// ── Delete ──
 async function deleteExpense(id) {
   if (!confirm('この記録を削除しますか？')) return;
   const res = await fetch(`/api/expenses/${id}`, { method: 'DELETE' });
-  if (res.ok) {
-    showToast('削除しました');
-    renderTab('history');
-  }
+  if (res.ok) { showToast('削除しました'); renderTab('history'); }
 }
 
 // ── CSV Import ──
@@ -1247,7 +1280,6 @@ function parseFileMonth(filename) {
   const m = filename.match(/(\d{4})(\d{2})/);
   if (m) {
     const stmtYear = parseInt(m[1]), stmtMonth = parseInt(m[2]);
-    // 予算月 = 明細月 - 1（支払い確定が翌月のため）
     let budgetYear = stmtYear, budgetMonth = stmtMonth - 1;
     if (budgetMonth < 1) { budgetMonth = 12; budgetYear--; }
     return { stmtYear, stmtMonth, budgetYear, budgetMonth };
@@ -1268,26 +1300,19 @@ function parseCsv(text, stmtYear, stmtMonth, budgetYear, budgetMonth) {
 
     let csvYear, csvMonth, csvDay, detail, amount, origDate;
 
-    // 形式A: YYYY/M/D（三井住友等）
     if (/^\d{4}\/\d{1,2}\/\d{1,2}$/.test(dateStr) && cols.length >= 3) {
       const parts = dateStr.split('/');
-      csvYear = parseInt(parts[0]);
-      csvMonth = parseInt(parts[1]);
-      csvDay = parseInt(parts[2]);
+      csvYear = parseInt(parts[0]); csvMonth = parseInt(parts[1]); csvDay = parseInt(parts[2]);
       detail = (cols[1] || '').trim();
       const billing = parseInt((cols[5] || '').replace(/,/g, '').trim());
       const usage   = parseInt((cols[2] || '').replace(/,/g, '').trim());
       amount = billing > 0 ? billing : usage;
-
-    // 形式B: X月X日（旧形式）
     } else if (/^\d+月\d+日$/.test(dateStr) && cols.length >= 7) {
       const dm = dateStr.match(/(\d+)月(\d+)日/);
-      csvMonth = parseInt(dm[1]);
-      csvDay = parseInt(dm[2]);
+      csvMonth = parseInt(dm[1]); csvDay = parseInt(dm[2]);
       csvYear = csvMonth > stmtMonth ? stmtYear - 1 : stmtYear;
       detail = (cols[3] || '').trim();
       amount = parseInt((cols[6] || '').trim());
-
     } else {
       continue;
     }
@@ -1352,13 +1377,13 @@ function renderCsvImport(el) {
           </select>
           <span id="csv-notes-label-${i}" onclick="toggleCsvNotes(${i})"
                 style="font-size:12px;color:var(--primary);cursor:pointer;user-select:none;white-space:nowrap;flex-shrink:0">
-            ${item.notes ? '📝' : '＋備考'}
+            ${item.notes ? '備考あり' : '+ 備考'}
           </span>
         </div>
         <input type="text" id="csv-notes-${i}" placeholder="備考を入力"
                value="${escHtml(item.notes || '')}"
                oninput="state.csvItems[${i}].notes=this.value; updateCsvNotesLabel(${i})"
-               style="display:${item.notes ? 'block' : 'none'};margin-top:4px;width:100%;padding:5px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;background:var(--bg);color:var(--text);box-sizing:border-box">
+               style="display:${item.notes ? 'block' : 'none'};margin-top:4px;width:100%;padding:5px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:13px;background:var(--bg);color:var(--text);box-sizing:border-box;font-family:inherit">
       </div>
     </div>
   `).join('');
@@ -1370,22 +1395,19 @@ function renderCsvImport(el) {
         <div style="flex:1;font-size:15px;font-weight:700">CSV一括読み込み</div>
         <span class="csv-select-all" onclick="toggleCsvAll()">全選択/解除</span>
       </div>
-
       <div class="form-group">
         <label>支払い（全件共通）</label>
         <div class="chip-group" id="chips-csv">
           ${buildChips('chips-csv', '共通カード')}
         </div>
       </div>
-
       <div style="font-size:12px;color:var(--muted);margin-bottom:4px">${items.length}件を検出 → <strong>${state.csvBudgetLabel}</strong>の支出として登録</div>
       ${itemsHtml}
-
-      <div id="csv-total-bar" style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-top:1px solid var(--border);margin-top:8px;font-size:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-top:1px solid var(--border);margin-top:8px;font-size:14px">
         <span id="csv-total-count" style="color:var(--muted)">${checkedCount}件選択中</span>
         <span id="csv-total-amount" style="font-weight:700;font-size:16px">合計 ¥${items.filter(i=>i.checked).reduce((s,i)=>s+i.amount,0).toLocaleString()}</span>
       </div>
-      <button class="btn-primary" id="csv-submit-btn" onclick="submitCsvImport()" style="margin-top:4px">
+      <button class="btn-primary" id="csv-submit-btn" onclick="submitCsvImport()">
         ${checkedCount}件を登録する
       </button>
     </div>
@@ -1400,13 +1422,11 @@ function toggleCsvNotes(i) {
   if (show) input.focus();
   else updateCsvNotesLabel(i);
 }
-
 function updateCsvNotesLabel(i) {
   const label = document.getElementById(`csv-notes-label-${i}`);
   if (!label) return;
-  label.textContent = state.csvItems[i].notes ? '📝' : '＋備考';
+  label.textContent = state.csvItems[i].notes ? '備考あり' : '+ 備考';
 }
-
 function updateCsvSubmitBtn() {
   const checked = state.csvItems.filter(i => i.checked);
   const btn = document.getElementById('csv-submit-btn');
@@ -1416,7 +1436,6 @@ function updateCsvSubmitBtn() {
   const amtEl = document.getElementById('csv-total-amount');
   if (amtEl) amtEl.textContent = `合計 ¥${checked.reduce((s,i)=>s+i.amount,0).toLocaleString()}`;
 }
-
 function toggleCsvAll() {
   const allChecked = state.csvItems.every(i => i.checked);
   state.csvItems.forEach((item, i) => {
@@ -1426,15 +1445,13 @@ function toggleCsvAll() {
   });
   updateCsvSubmitBtn();
 }
-
 async function submitCsvImport() {
   const payment = getSelectedChip('chips-csv');
   const toSubmit = state.csvItems.filter(i => i.checked);
   if (toSubmit.length === 0) { showToast('1件以上選択してください'); return; }
 
   const btn = document.getElementById('csv-submit-btn');
-  btn.disabled = true;
-  btn.textContent = '登録中...';
+  btn.disabled = true; btn.textContent = '登録中…';
 
   let success = 0, skipped = 0;
   for (const item of toSubmit) {
@@ -1443,30 +1460,31 @@ async function submitCsvImport() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ date: item.date, amount: item.amount, category: item.category, detail: item.detail, payment, notes: item.notes }),
     });
-    if (res.ok) success++;
-    else skipped++;
+    if (res.ok) success++; else skipped++;
   }
 
-  showToast(`✅ ${success}件登録${skipped > 0 ? ` (${skipped}件スキップ)` : ''}`);
+  showToast(`${success}件登録${skipped > 0 ? ` (${skipped}件スキップ)` : ''}`);
   state.csvItems = [];
   showTab('input');
 }
 
 // ── Utils ──
+function pipClass(payment) {
+  if (payment === '共通カード') return 'pip-card';
+  if (payment === 'あかり立替') return 'pip-akari';
+  return 'pip-daichi';
+}
 function badgeClass(payment) {
   if (payment === '共通カード') return 'badge-card';
   if (payment === 'あかり立替') return 'badge-akari';
   return 'badge-daichi';
 }
-
 function formatDate(d) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
-
 function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
-
 function showToast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg;
